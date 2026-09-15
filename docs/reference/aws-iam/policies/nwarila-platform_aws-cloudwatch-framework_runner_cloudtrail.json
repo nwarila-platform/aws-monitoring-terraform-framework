@@ -1,0 +1,15 @@
+{
+  "Statement": [
+    {
+      "Action": [
+        "cloudtrail:DescribeTrails",
+        "cloudtrail:GetEventSelectors",
+        "cloudtrail:GetTrailStatus"
+      ],
+      "Effect": "Allow",
+      "Resource": "*",
+      "Sid": "ProveALoggingTrailExistsBeforeDeploying"
+    }
+  ],
+  "Version": "2012-10-17"
+}

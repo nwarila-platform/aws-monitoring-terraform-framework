@@ -1,0 +1,138 @@
+name: AWS Deploy
+
+# The one standing deployment this repository owns: every merge to main converges the alert
+# topic and rules in the workload account, and nothing outside main can reach AWS. Pull requests
+# are validated by the credential-free CI workflow.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+# One state key, one deployment: never two applies at once, never cancel a live apply.
+concurrency:
+  group: aws-deploy-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  main-ref:
+    name: Protected main ref
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Refuse privileged execution outside protected main
+        env:
+          EXPECTED_REF: refs/heads/main
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF}" != "${EXPECTED_REF}" ]; then
+            echo "::error::AWS deploys run only from ${EXPECTED_REF}; got ${GITHUB_REF}."
+            exit 1
+          fi
+
+  aws-deploy:
+    name: Converge change alerts
+    needs: main-ref
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      id-token: write # required to mint the GitHub OIDC token the deploy role trusts
+      contents: read # required to check out the commit being deployed
+    env:
+      AWS_REGION: us-east-1
+      DEPLOY_ROLE: nwarila-platform_aws-cloudwatch-framework_runner
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ env.DEPLOY_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID }}
+          role-session-name: aws-deploy-${{ github.run_id }}
+          role-duration-seconds: 3600
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85 # v4.0.0
+        with:
+          # renovate: datasource=github-releases depName=hashicorp/terraform extractVersion=^v(?<version>.*)$ versioning=hashicorp
+          terraform_version: "1.15.1"
+          terraform_wrapper: false
+
+      # A rule with no trail behind it applies cleanly and never fires. Prove the prerequisite
+      # before touching state, so a missing trail fails here with its cause named.
+      - name: Verify a logging CloudTrail trail covers the region
+        run: bash tools/check_cloudtrail.sh
+
+      - name: Terraform init
+        env:
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          terraform -chdir=terraform init -input=false                             \
+            -backend-config="bucket=${AWS_ACCOUNT_ID}-terraform"                   \
+            -backend-config="key=${GITHUB_REPOSITORY}/terraform.tfstate"           \
+            -backend-config="region=${AWS_REGION}"
+
+      # Identity is passed as command-line -var so the committed tfvars cannot restate who
+      # deployed. The checked-out commit is read back from git, not taken from github.sha.
+      - name: Terraform plan
+        run: |
+          set -euo pipefail
+          terraform -chdir=terraform plan -input=false -out=tfplan                 \
+            -var "commit_sha=$(git rev-parse HEAD)"                                \
+            -var "repository=${GITHUB_REPOSITORY}"                                 \
+            -var "repository_id=${GITHUB_REPOSITORY_ID}"                           \
+            -var "run_id=${GITHUB_RUN_ID}"
+
+      - name: Terraform apply
+        run: |
+          set -euo pipefail
+          terraform -chdir=terraform apply -input=false tfplan
+
+      # Terraform's own report is not the proof. Read the rules, the target, the topic and the
+      # subscriptions back from AWS and fail if any rule is not ENABLED or does not target the
+      # topic. Pending subscriptions are listed, not failed: only the recipient can confirm one.
+      - name: Verify the deployed alerts against AWS
+        run: |
+          set -euo pipefail
+          topic_arn="$(terraform -chdir=terraform output -raw alert_topic_arn)"
+          echo "topic ${topic_arn}"
+          key_id="$(aws sns get-topic-attributes --topic-arn "${topic_arn}" \
+            --query 'Attributes.KmsMasterKeyId' --output text)"
+          if [ -z "${key_id}" ] || [ "${key_id}" = "None" ]; then
+            echo "::error::The topic is not encrypted with a KMS key."
+            exit 1
+          fi
+          for rule in $(terraform -chdir=terraform output -json alert_rules | jq -r '.[].name'); do
+            state="$(aws events describe-rule --name "${rule}" --query State --output text)"
+            target="$(aws events list-targets-by-rule --rule "${rule}" --query 'Targets[0].Arn' --output text)"
+            if [ "${state}" != "ENABLED" ] || [ "${target}" != "${topic_arn}" ]; then
+              echo "::error::Rule ${rule} is ${state} targeting ${target}; expected ENABLED targeting ${topic_arn}."
+              exit 1
+            fi
+            echo "rule ${rule} is ENABLED and targets the topic"
+          done
+          {
+            echo "## Change alerts deployed"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Commit | $(git rev-parse HEAD) |"
+            echo "| Run | ${GITHUB_RUN_ID} |"
+            echo "| Topic | ${topic_arn} |"
+            echo
+            echo "| Subscription | Status |"
+            echo "| --- | --- |"
+            aws sns list-subscriptions-by-topic --topic-arn "${topic_arn}" --output json \
+              | jq -r '.Subscriptions[] | "| \(.Endpoint) | \(if .SubscriptionArn == "PendingConfirmation" then "pending confirmation" else "confirmed" end) |"'
+          } >> "${GITHUB_STEP_SUMMARY}"

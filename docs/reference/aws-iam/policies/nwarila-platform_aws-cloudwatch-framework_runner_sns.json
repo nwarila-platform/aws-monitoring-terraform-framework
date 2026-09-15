@@ -1,0 +1,40 @@
+{
+  "Statement": [
+    {
+      "Action": "sns:CreateTopic",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/RepositoryId": "<repository-id>"
+        }
+      },
+      "Effect": "Allow",
+      "Resource": "arn:aws:sns:us-east-1:<account-id>:security-change-alerts",
+      "Sid": "CreateOnlyTheOneTopicTaggedAsThisRepositorys"
+    },
+    {
+      "Action": [
+        "sns:DeleteTopic",
+        "sns:GetTopicAttributes",
+        "sns:ListSubscriptionsByTopic",
+        "sns:ListTagsForResource",
+        "sns:SetTopicAttributes",
+        "sns:Subscribe",
+        "sns:TagResource",
+        "sns:UntagResource"
+      ],
+      "Effect": "Allow",
+      "Resource": "arn:aws:sns:us-east-1:<account-id>:security-change-alerts",
+      "Sid": "ManageOnlyTheOneTopic"
+    },
+    {
+      "Action": [
+        "sns:GetSubscriptionAttributes",
+        "sns:Unsubscribe"
+      ],
+      "Effect": "Allow",
+      "Resource": "arn:aws:sns:us-east-1:<account-id>:security-change-alerts:*",
+      "Sid": "ManageOnlyThatTopicsSubscriptions"
+    }
+  ],
+  "Version": "2012-10-17"
+}

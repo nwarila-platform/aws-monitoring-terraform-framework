@@ -1,0 +1,120 @@
+mock_provider "aws" {
+  alias = "us_east_1"
+
+  mock_data "aws_caller_identity" {
+    defaults = {
+      account_id = join("", ["123456", "789012"])
+    }
+  }
+}
+
+variables {
+  repository    = "nwarila-platform/aws-cloudwatch-framework"
+  repository_id = "123456789"
+  commit_sha    = "0123456789abcdef0123456789abcdef01234567"
+  run_id        = "42"
+  environment   = "test"
+  alert_emails  = ["security@example.com"]
+}
+
+run "rejects_an_address_without_a_domain" {
+  command = plan
+
+  variables {
+    alert_emails = ["security"]
+  }
+
+  expect_failures = [var.alert_emails]
+}
+
+run "rejects_an_address_with_whitespace" {
+  command = plan
+
+  variables {
+    alert_emails = ["security @example.com"]
+  }
+
+  expect_failures = [var.alert_emails]
+}
+
+run "rejects_the_same_address_twice" {
+  command = plan
+
+  variables {
+    alert_emails = ["security@example.com", "security@example.com"]
+  }
+
+  expect_failures = [var.alert_emails]
+}
+
+run "rejects_environment_outside_lowercase_set" {
+  command = plan
+
+  variables {
+    environment = "staging"
+  }
+
+  expect_failures = [var.environment]
+}
+
+# Case variants are rejected too: the value reaches the Environment tag verbatim, so "dev" and
+# "DEV" would otherwise be two different values in every tag-based inventory query.
+run "rejects_uppercase_environment_case_variant" {
+  command = plan
+
+  variables {
+    environment = "DEV"
+  }
+
+  expect_failures = [var.environment]
+}
+
+run "rejects_github_sha_style_uppercase" {
+  command = plan
+
+  variables {
+    commit_sha = "ABC123"
+  }
+
+  expect_failures = [var.commit_sha]
+}
+
+run "rejects_non_numeric_repository_id" {
+  command = plan
+
+  variables {
+    repository_id = "not-a-number"
+  }
+
+  expect_failures = [var.repository_id]
+}
+
+run "rejects_non_numeric_run_id" {
+  command = plan
+
+  variables {
+    run_id = "run-42"
+  }
+
+  expect_failures = [var.run_id]
+}
+
+run "rejects_repository_without_owner" {
+  command = plan
+
+  variables {
+    repository = "aws-cloudwatch-framework"
+  }
+
+  expect_failures = [var.repository]
+}
+
+run "rejects_metadata_tag_value_over_256_characters" {
+  command = plan
+
+  variables {
+    repository_id = join("", [for index in range(257) : "1"])
+  }
+
+  expect_failures = [var.repository_id]
+}

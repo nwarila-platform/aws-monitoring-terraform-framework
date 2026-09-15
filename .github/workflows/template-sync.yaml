@@ -1,0 +1,35 @@
+name: Template Sync
+# Detects drift between this consumer and the canonical
+# NWarila/terraform-framework-template baseline manifest.
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: template-sync-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  baseline:
+    name: framework-template / verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read # required for drift-gate to read this repository's baseline manifest
+      checks: write # required for drift-gate to publish inline PR annotations
+    steps:
+      - name: Drift gate (framework-template baseline)
+        # renovate: datasource=git-refs depName=NWarila/drift-gate
+        uses: NWarila/drift-gate@3864401ce520ecb851311efb4ba1a199808768fb # NWarila/drift-gate main @ 2026-07-22
+        with:
+          source-repo: NWarila/terraform-framework-template
+          # renovate: datasource=git-refs depName=NWarila/terraform-framework-template packageName=https://github.com/NWarila/terraform-framework-template.git currentValue=main
+          source-ref: ba73041b808ceae584f482e6bec2970c1bdc019b # NWarila/terraform-framework-template main @ 2026-07-22
+          manifest: baseline-manifest.json
+          check-name: framework-template / verify

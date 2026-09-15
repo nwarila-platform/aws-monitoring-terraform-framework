@@ -1,0 +1,94 @@
+# Deny-all .gitignore strategy per org ADR-0003.
+# Anything not explicitly allowlisted below is ignored.
+**
+
+# Core repo files
+!.editorconfig
+!.gitattributes
+!.gitignore
+!.markdownlint-cli2.jsonc
+!.pre-commit-config.yaml
+!.terraform-docs.yml
+!.tflint.hcl
+!CHANGELOG.md
+!LICENSE
+!Makefile
+!README.md
+!release-please-config.json
+!.release-please-manifest.json
+
+# GitHub configuration
+!/.github/
+!/.github/CODEOWNERS
+!/.github/PULL_REQUEST_TEMPLATE.md
+!/.github/renovate.json5
+!/.github/workflows/
+!/.github/workflows/aws-deploy.yaml
+!/.github/workflows/ci.yaml
+!/.github/workflows/repo-hygiene.yaml
+!/.github/workflows/release-please.yaml
+!/.github/workflows/security.yaml
+!/.github/workflows/template-sync.yaml
+
+# Editor configuration
+!/.vscode/
+!/.vscode/extensions.json
+!/.vscode/settings.json
+
+# Terraform root module, its one deployment's values, and tests
+!/terraform/
+!/terraform/.terraform.lock.hcl
+!/terraform/*.tf
+!/terraform/terraform.tfvars
+!/terraform/backend.hcl.example
+!/terraform/tests/
+!/terraform/tests/*.tftest.hcl
+
+# Documentation (Diátaxis)
+!/docs/
+!/docs/README.md
+!/docs/explanation/
+!/docs/explanation/architecture.md
+!/docs/explanation/testing-strategy.md
+!/docs/explanation/threat-model.md
+!/docs/reference/
+!/docs/reference/invariants.md
+!/docs/reference/style-guide.md
+!/docs/reference/mirroring.md
+!/docs/reference/release-gates.md
+!/docs/reference/runner-protocol.md
+!/docs/reference/terraform.md
+!/docs/reference/aws-iam/
+!/docs/reference/aws-iam/README.md
+!/docs/reference/aws-iam/roles/
+!/docs/reference/aws-iam/roles/*.trust.json
+!/docs/reference/aws-iam/policies/
+!/docs/reference/aws-iam/policies/*.json
+!/docs/how-to/
+!/docs/how-to/develop-this-module.md
+!/docs/how-to/deploy-and-confirm-recipients.md
+!/docs/decision-records/
+!/docs/decision-records/README.md
+!/docs/decision-records/org/
+!/docs/decision-records/org/.gitkeep
+!/docs/decision-records/org/0001-use-architecture-decision-records.md
+!/docs/decision-records/org/0002-adopt-diataxis-documentation-framework.md
+!/docs/decision-records/org/0003-use-deny-all-gitignore-strategy.md
+!/docs/decision-records/org/0004-use-renovate-for-dependency-updates.md
+!/docs/decision-records/org/0005-keep-github-control-planes-namespace-local.md
+!/docs/decision-records/repo/
+!/docs/decision-records/repo/.gitkeep
+!/docs/decision-records/repo/*.md
+!/docs/decision-records/template/
+!/docs/decision-records/template/.gitkeep
+!/docs/decision-records/template/README.md
+!/docs/decision-records/template/0001-pin-terraform-and-provider-versions-exactly.md
+!/docs/decision-records/template/0002-keep-reference-framework-credential-free.md
+!/docs/decision-records/template/0004-isolate-pull-request-target-triggers.md
+!/docs/decision-records/template/0005-classify-org-control-plane-callers-as-scaffold.md
+
+# Tools
+!/tools/
+!/tools/check_cloudtrail.sh
+!/tools/check_docs_layout.py
+!/tools/install_ci_tools.sh
