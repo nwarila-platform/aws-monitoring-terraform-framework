@@ -127,6 +127,54 @@ locals {
   #endregion --- [ Alert Channel ] ------------------------------------------------------------- #
 
 
+  #region ------ [ Management Event Trail ] ---------------------------------------------------- #
+
+  # The trail whose records these alerts read. Named for what it carries rather than for the
+  # alerts, because a trail is account-wide audit infrastructure that outlives them.
+  trail_name   = "management-events"
+  trail_bucket = "${data.aws_caller_identity.current.account_id}-cloudtrail"
+  trail_tags   = merge(local.identity_tags, { Name = local.trail_name })
+
+  # Composed rather than read from the resource: the bucket policy has to name the trail, and the
+  # trail cannot be created until that policy exists.
+  trail_arn = format(
+    "arn:aws:cloudtrail:us-east-1:%s:trail/%s",
+    data.aws_caller_identity.current.account_id,
+    local.trail_name,
+  )
+
+  # The policy CloudTrail requires to write, with the source condition AWS documents for it. The
+  # object path is fixed by CloudTrail and includes the account id.
+  trail_bucket_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "CloudTrailChecksBucketAcl"
+        Effect    = "Allow"
+        Principal = { Service = "cloudtrail.amazonaws.com" }
+        Action    = "s3:GetBucketAcl"
+        Resource  = "arn:aws:s3:::${local.trail_bucket}"
+        Condition = { StringEquals = { "aws:SourceArn" = local.trail_arn } }
+      },
+      {
+        Sid       = "CloudTrailWritesLogs"
+        Effect    = "Allow"
+        Principal = { Service = "cloudtrail.amazonaws.com" }
+        Action    = "s3:PutObject"
+        Resource  = "arn:aws:s3:::${local.trail_bucket}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+        Condition = {
+          StringEquals = {
+            "s3:x-amz-acl"  = "bucket-owner-full-control"
+            "aws:SourceArn" = local.trail_arn
+          }
+        }
+      },
+    ]
+  })
+
+  #endregion --- [ Management Event Trail ] ---------------------------------------------------- #
+
+
   #region ------ [ Change Alerts ] ------------------------------------------------------------- #
 
   # What gets an email. One entry is one EventBridge rule: the CloudTrail event source it

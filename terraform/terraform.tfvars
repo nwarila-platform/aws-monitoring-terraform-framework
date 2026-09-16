@@ -10,6 +10,9 @@ environment = "prod"
 # one address, so the first recipient lands in the same change that first deploys.
 alert_emails = ["REPLACE_ME@example.com"]
 
+# Neither account in this organization has a trail, and the alerts cannot fire without one.
+manage_trail = true
+
 # The deploy pipelines whose security-group churn is not emailed, measured from 30 days of
 # CloudTrail. Their IAM changes still alert, and so does every change made by a person. Adding a
 # repository to the fleet means adding its runner role here.

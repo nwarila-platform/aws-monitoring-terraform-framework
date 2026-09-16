@@ -79,6 +79,19 @@ variable "exempt_pipeline_roles" {
   }
 }
 
+variable "manage_trail" {
+  description = <<-EOT
+    Create the CloudTrail trail these alerts depend on. EventBridge receives no CloudTrail events
+    at all unless a logging trail exists, so an account without one needs this set. It defaults
+    to nothing here and is turned on per deployment on purpose: AWS gives each account one free
+    copy of its management events, and an organization trail places a copy in every member
+    account, so creating a second trail bills every management event twice. The deploy proves
+    which case it is before it applies.
+  EOT
+  type        = bool
+  nullable    = false
+}
+
 variable "repository" {
   description = "GitHub owner/name slug of the deploying repository, stamped as the Repository tag."
   type        = string

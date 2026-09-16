@@ -35,6 +35,10 @@ Non-negotiable rules for this module. Violating one of these is a breaking chang
   watch are published only when non-zero.
 - Deployment identity MUST arrive as command-line `-var` arguments and MUST be stamped on every
   taggable resource; the committed `terraform.tfvars` MUST NOT set it.
+- The framework MUST NOT create a trail in an account already covered by one; the deploy MUST
+  decide that from the saved plan and fail rather than add a billable second copy.
+- A trail this framework owns MUST be multi-region, MUST include global service events, MUST
+  validate its log files, and MUST carry `prevent_destroy` along with its bucket.
 - The deploy MUST prove a logging trail covers the region before applying, and MUST read the
   rules, target, key and subscriptions back from AWS after applying. Proving the trail MUST
   reject a trail that records only read events and one that filters out either alerted service.

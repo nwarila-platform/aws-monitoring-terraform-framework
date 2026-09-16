@@ -9,6 +9,32 @@
       "Effect": "Allow",
       "Resource": "*",
       "Sid": "ProveALoggingTrailExistsBeforeDeploying"
+    },
+    {
+      "Action": "cloudtrail:CreateTrail",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/RepositoryId": "<repository-id>"
+        }
+      },
+      "Effect": "Allow",
+      "Resource": "arn:aws:cloudtrail:us-east-1:<account-id>:trail/management-events",
+      "Sid": "CreateOnlyTheManagementEventTrailTaggedAsThisRepositorys"
+    },
+    {
+      "Action": [
+        "cloudtrail:AddTags",
+        "cloudtrail:DeleteTrail",
+        "cloudtrail:ListTags",
+        "cloudtrail:PutEventSelectors",
+        "cloudtrail:RemoveTags",
+        "cloudtrail:StartLogging",
+        "cloudtrail:StopLogging",
+        "cloudtrail:UpdateTrail"
+      ],
+      "Effect": "Allow",
+      "Resource": "arn:aws:cloudtrail:us-east-1:<account-id>:trail/management-events",
+      "Sid": "ManageOnlyTheManagementEventTrail"
     }
   ],
   "Version": "2012-10-17"

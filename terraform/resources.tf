@@ -369,3 +369,193 @@ resource "aws_cloudwatch_metric_alarm" "us_east_1_notification_failures" {
 #endregion --- [ aws_cloudwatch_metric_alarm.notification_failures - us-east-1 ] --------------- #
 
 #endregion --- [ aws_cloudwatch_metric_alarm ] ------------------------------------------------- #
+
+
+#region ------ [ aws_s3_bucket ] --------------------------------------------------------------- #
+
+#region ------ [ aws_s3_bucket - us-east-1 ] --------------------------------------------------- #
+
+resource "aws_s3_bucket" "us_east_1_trail" {
+
+  # Define the Trail Log Bucket Properties
+  provider = aws.us_east_1
+  count    = var.manage_trail ? 1 : 0
+
+  bucket = local.trail_bucket
+  tags   = merge(local.identity_tags, { Name = local.trail_bucket })
+
+  lifecycle {
+    # This bucket is the account's audit record. A destroy here, or a lost state file followed by
+    # one, would delete the evidence these alerts exist to raise.
+    prevent_destroy = true
+  }
+
+}
+
+#endregion --- [ aws_s3_bucket - us-east-1 ] --------------------------------------------------- #
+
+#endregion --- [ aws_s3_bucket ] --------------------------------------------------------------- #
+
+
+#region ------ [ aws_s3_bucket_public_access_block ] ------------------------------------------- #
+
+#region ------ [ aws_s3_bucket_public_access_block - us-east-1 ] ------------------------------- #
+
+resource "aws_s3_bucket_public_access_block" "us_east_1_trail" {
+
+  # Define the Trail Log Bucket Public-Access Properties
+  provider = aws.us_east_1
+  count    = var.manage_trail ? 1 : 0
+
+  block_public_acls       = true
+  block_public_policy     = true
+  bucket                  = aws_s3_bucket.us_east_1_trail[0].id
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+
+}
+
+#endregion --- [ aws_s3_bucket_public_access_block - us-east-1 ] ------------------------------- #
+
+#endregion --- [ aws_s3_bucket_public_access_block ] ------------------------------------------- #
+
+
+#region ------ [ aws_s3_bucket_ownership_controls ] -------------------------------------------- #
+
+#region ------ [ aws_s3_bucket_ownership_controls - us-east-1 ] -------------------------------- #
+
+resource "aws_s3_bucket_ownership_controls" "us_east_1_trail" {
+
+  # Define the Trail Log Bucket Ownership Properties
+  provider = aws.us_east_1
+  count    = var.manage_trail ? 1 : 0
+
+  bucket = aws_s3_bucket.us_east_1_trail[0].id
+
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+
+}
+
+#endregion --- [ aws_s3_bucket_ownership_controls - us-east-1 ] -------------------------------- #
+
+#endregion --- [ aws_s3_bucket_ownership_controls ] -------------------------------------------- #
+
+
+#region ------ [ aws_s3_bucket_server_side_encryption_configuration ] -------------------------- #
+
+#region ------ [ aws_s3_bucket_server_side_encryption_configuration - us-east-1 ] -------------- #
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "us_east_1_trail" {
+
+  # Define the Trail Log Bucket Encryption Properties. S3-managed keys rather than the alert key:
+  # the logs hold the same metadata the alerts already email, and a customer key here costs a
+  # further key and a further grant for no further protection. CIS 3.7 asks for KMS; that
+  # deviation is recorded in docs/decision-records/repo/0003.
+  provider = aws.us_east_1
+  count    = var.manage_trail ? 1 : 0
+
+  bucket = aws_s3_bucket.us_east_1_trail[0].id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+
+}
+
+#endregion --- [ aws_s3_bucket_server_side_encryption_configuration - us-east-1 ] -------------- #
+
+#endregion --- [ aws_s3_bucket_server_side_encryption_configuration ] -------------------------- #
+
+
+#region ------ [ aws_s3_bucket_lifecycle_configuration ] --------------------------------------- #
+
+#region ------ [ aws_s3_bucket_lifecycle_configuration - us-east-1 ] --------------------------- #
+
+resource "aws_s3_bucket_lifecycle_configuration" "us_east_1_trail" {
+
+  # Define the Trail Log Bucket Lifecycle Properties
+  provider = aws.us_east_1
+  count    = var.manage_trail ? 1 : 0
+
+  bucket = aws_s3_bucket.us_east_1_trail[0].id
+
+  rule {
+    id     = "expire-management-event-logs"
+    status = "Enabled"
+
+    filter {}
+
+    expiration {
+      days = 365
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
+
+}
+
+#endregion --- [ aws_s3_bucket_lifecycle_configuration - us-east-1 ] --------------------------- #
+
+#endregion --- [ aws_s3_bucket_lifecycle_configuration ] --------------------------------------- #
+
+
+#region ------ [ aws_s3_bucket_policy ] -------------------------------------------------------- #
+
+#region ------ [ aws_s3_bucket_policy - us-east-1 ] -------------------------------------------- #
+
+resource "aws_s3_bucket_policy" "us_east_1_trail" {
+
+  # Define the Trail Log Bucket Policy Properties
+  provider = aws.us_east_1
+  count    = var.manage_trail ? 1 : 0
+
+  bucket = aws_s3_bucket.us_east_1_trail[0].id
+  policy = local.trail_bucket_policy
+
+  depends_on = [aws_s3_bucket_public_access_block.us_east_1_trail]
+
+}
+
+#endregion --- [ aws_s3_bucket_policy - us-east-1 ] -------------------------------------------- #
+
+#endregion --- [ aws_s3_bucket_policy ] -------------------------------------------------------- #
+
+
+#region ------ [ aws_cloudtrail ] -------------------------------------------------------------- #
+
+#region ------ [ aws_cloudtrail - us-east-1 ] -------------------------------------------------- #
+
+resource "aws_cloudtrail" "us_east_1" {
+
+  # Define the Management Event Trail Properties. Multi-region and global service events are both
+  # required rather than preferred: a security group is recorded in the region of the call, and
+  # IAM is a global service whose events are recorded in US East (N. Virginia).
+  provider = aws.us_east_1
+  count    = var.manage_trail ? 1 : 0
+
+  enable_log_file_validation    = true
+  include_global_service_events = true
+  is_multi_region_trail         = true
+  name                          = local.trail_name
+  s3_bucket_name                = aws_s3_bucket.us_east_1_trail[0].id
+  tags                          = local.trail_tags
+
+  # CloudTrail refuses to create a trail it cannot write to, so the policy has to land first.
+  depends_on = [aws_s3_bucket_policy.us_east_1_trail]
+
+  lifecycle {
+    # Deleting the trail stops every alert in this framework and ends the account's audit record.
+    prevent_destroy = true
+  }
+
+}
+
+#endregion --- [ aws_cloudtrail - us-east-1 ] -------------------------------------------------- #
+
+#endregion --- [ aws_cloudtrail ] -------------------------------------------------------------- #

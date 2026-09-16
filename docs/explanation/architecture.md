@@ -3,8 +3,8 @@
 ## Module Boundary
 
 This repository is a Terraform root module for one pre-existing AWS account. It owns the alert
-channel and the rules that feed it. It does not own account bootstrap, the CloudTrail trail, IAM,
-OIDC, or remote state.
+channel, the rules that feed it, and, when `manage_trail` is set, the CloudTrail trail those
+rules read. It does not own account bootstrap, IAM, OIDC, or remote state.
 
 The module declares:
 
@@ -15,6 +15,8 @@ The module declares:
 - Health: a second `aws_sns_topic` with the same recipients, an `aws_sqs_queue` holding alerts
   that could not be delivered, and three `aws_cloudwatch_metric_alarm` resources reporting to
   the health topic.
+- Source of events, optional: an `aws_cloudtrail` trail and the closed S3 bucket it writes to,
+  created only when `manage_trail` is set.
 
 ## How an alert reaches an inbox
 

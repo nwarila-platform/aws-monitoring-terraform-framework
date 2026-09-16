@@ -1,14 +1,27 @@
 #!/usr/bin/env bash
-# Fail unless a logging CloudTrail trail delivers this region's write management events, global
-# service events included. EventBridge receives "AWS API Call via CloudTrail" events only while
-# such a trail exists (EventBridge User Guide, "AWS service events delivered via AWS CloudTrail"),
-# so without one every rule this framework deploys is green in Terraform and silent in practice.
-# IAM calls are global service events recorded as occurring in us-east-1, which is why the trail
-# must include them.
+# Decide whether this account's CloudTrail configuration can carry the alerts, in one of two
+# modes. EventBridge receives "AWS API Call via CloudTrail" events only while a logging trail
+# exists (EventBridge User Guide, "AWS service events delivered via AWS CloudTrail"), so without
+# one every rule this framework deploys is green in Terraform and silent in practice. IAM calls
+# are global service events recorded as occurring in us-east-1, which is why the trail must
+# include them.
+#
+#   check_cloudtrail.sh                 a covering trail MUST already exist (the default, and
+#                                       what runs after an apply)
+#   check_cloudtrail.sh --plan <file>   the saved plan is inspected: if it creates a trail, no
+#                                       OTHER covering trail may exist, because AWS gives each
+#                                       account one free copy of its management events and bills
+#                                       every copy after it. If it creates none, the default rule
+#                                       applies.
 #
 # Read-only: describe-trails, get-trail-status, get-event-selectors. Needs jq and the AWS CLI.
 
 set -euo pipefail
+
+plan_file=""
+if [ "${1:-}" = "--plan" ]; then
+  plan_file="${2:?--plan needs the path to a saved plan file}"
+fi
 
 region="${AWS_REGION:?AWS_REGION must name the region the rules deploy into}"
 tools_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,11 +40,18 @@ candidates="$(aws cloudtrail describe-trails --include-shadow-trails --region "$
       | .TrailARN')"
 
 if [ -z "${candidates}" ]; then
-  echo "::error::No trail covers ${region} with global service events included; EventBridge will receive no CloudTrail events." >&2
-  exit 1
+  if [ -n "${plan_file}" ]; then
+    # An account with no trail is exactly the account this framework offers to create one for;
+    # whether it does is decided below, from the plan.
+    candidates=""
+  else
+    echo "::error::No trail covers ${region} with global service events included; EventBridge will receive no CloudTrail events." >&2
+    exit 1
+  fi
 fi
 
 covering=""
+covering_names=""
 while read -r trail; do
   logging="$(aws cloudtrail get-trail-status --name "${trail}" --region "${region}" \
     --query IsLogging --output text)"
@@ -60,7 +80,33 @@ while read -r trail; do
 
   echo "trail ${trail} is logging write management events for ${region}"
   covering="${trail}"
+  covering_names="${covering_names}${covering_names:+$'\n'}${trail##*trail/}"
 done <<< "${candidates}"
+
+
+# What the plan intends, if a plan was given. An empty value means this deployment does not
+# manage a trail, so the account must already have one.
+planned_trail=""
+if [ -n "${plan_file}" ]; then
+  planned_trail="$(terraform -chdir="$(dirname "${plan_file}")" show -json "$(basename "${plan_file}")" \
+    | jq -r '[ .planned_values.root_module.resources[]?
+               | select(.type == "aws_cloudtrail")
+               | .values.name ] | first // ""')"
+fi
+
+if [ -n "${planned_trail}" ]; then
+  # Ours is allowed to be here already; anyone else's means a second copy of every management
+  # event, billed.
+  others="$(printf '%s\n' "${covering_names}" | grep -v "^${planned_trail}$" || true)"
+  if [ -n "${others}" ]; then
+    printf '::error::This deploy would create trail %s while these already cover %s: %s. ' \
+      "${planned_trail}" "${region}" "$(printf '%s' "${others}" | tr '\n' ' ')" >&2
+    printf 'A second trail bills every management event twice; set manage_trail = false.\n' >&2
+    exit 1
+  fi
+  echo "no other trail covers ${region}; this deploy will create ${planned_trail}"
+  exit 0
+fi
 
 if [ -z "${covering}" ]; then
   echo "::error::A trail covers ${region} but none is logging write management events; EventBridge will receive no CloudTrail events." >&2

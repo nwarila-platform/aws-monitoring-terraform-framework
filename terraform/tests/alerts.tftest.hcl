@@ -32,6 +32,7 @@ variables {
   commit_sha            = "0123456789abcdef0123456789abcdef01234567"
   run_id                = "42"
   environment           = "test"
+  manage_trail          = false
   alert_emails          = ["security@example.com", "oncall@example.com"]
   exempt_pipeline_roles = ["nwarila-platform_pdq-deploy-inventory_runner"]
 }

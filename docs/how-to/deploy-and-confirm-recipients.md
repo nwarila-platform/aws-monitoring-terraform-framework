@@ -11,8 +11,9 @@ The deploy workflow needs three things that this repository does not create:
    AWS_REGION=us-east-1 tools/check_cloudtrail.sh
    ```
 
-   If it fails, create or fix the trail first. A rule with no trail behind it applies cleanly
-   and never fires.
+   If it reports none, leave `manage_trail = true` and this deployment creates one. If the
+   account already has a covering trail, set `manage_trail = false`: a second trail bills every
+   management event twice. The deploy checks which case it is in before applying.
 
 2. **The deploy role.** Create `nwarila-platform_aws-cloudwatch-framework_runner` from the
    documents under [`docs/reference/aws-iam/`](../reference/aws-iam/README.md), substituting

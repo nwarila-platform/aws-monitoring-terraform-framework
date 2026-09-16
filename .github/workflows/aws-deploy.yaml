@@ -68,11 +68,6 @@ jobs:
           terraform_version: "1.15.1"
           terraform_wrapper: false
 
-      # A rule with no trail behind it applies cleanly and never fires. Prove the prerequisite
-      # before touching state, so a missing trail fails here with its cause named.
-      - name: Verify a logging CloudTrail trail covers the region
-        run: bash tools/check_cloudtrail.sh
-
       - name: Terraform init
         env:
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
@@ -94,6 +89,12 @@ jobs:
             -var "repository_id=${GITHUB_REPOSITORY_ID}"                           \
             -var "run_id=${GITHUB_RUN_ID}"
 
+      # A rule with no trail behind it applies cleanly and never fires, and a second trail in an
+      # account that already has one bills every management event twice. Both are decided from
+      # the plan, before it is applied.
+      - name: Verify the account's CloudTrail configuration
+        run: bash tools/check_cloudtrail.sh --plan terraform/tfplan
+
       # The mocked suite proves what a pattern contains; only EventBridge proves what it matches.
       # The exemption makes that difference load-bearing, so the fixtures run against the saved
       # plan before it is applied.
@@ -108,6 +109,11 @@ jobs:
       # Terraform's own report is not the proof. Read the rules, the target, the topic and the
       # subscriptions back from AWS and fail if any rule is not ENABLED or does not target the
       # topic. Pending subscriptions are listed, not failed: only the recipient can confirm one.
+      # After the apply, the prerequisite must hold outright: a trail this deploy created counts,
+      # one it expected to find counts, and neither being there is a failure.
+      - name: Verify a logging trail now covers the region
+        run: bash tools/check_cloudtrail.sh
+
       - name: Verify the deployed alerts against AWS
         run: |
           set -euo pipefail
