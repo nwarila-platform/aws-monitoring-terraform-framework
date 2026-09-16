@@ -64,6 +64,8 @@
 !/docs/reference/aws-iam/roles/*.trust.json
 !/docs/reference/aws-iam/policies/
 !/docs/reference/aws-iam/policies/*.json
+!/docs/reference/aws-iam/controls/
+!/docs/reference/aws-iam/controls/*.json
 !/docs/how-to/
 !/docs/how-to/develop-this-module.md
 !/docs/how-to/deploy-and-confirm-recipients.md

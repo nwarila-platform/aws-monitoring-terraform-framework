@@ -44,6 +44,24 @@ No inline policies.
 - The `sub` claim's organisation-id form (`nwarila-platform@230745524`) is the one GitHub issues
   for this organisation; it is copied from the sibling repositories' live trusts.
 
+## The region restriction this design depends on
+
+The alerts watch one region. A security group is recorded by CloudTrail in the region of the
+call, so a group created anywhere else raises nothing. That is only acceptable while the account
+cannot be used elsewhere, which is a control this repository documents and does not apply.
+
+[`controls/region-restriction.json`](controls/region-restriction.json) is that control: a deny of
+every action outside the supported region, exempting the service-linked-role path and the
+organization access role so that AWS's own automation and break-glass access keep working. Global
+services such as IAM, STS and CloudFront are unaffected, because their calls are made against
+their own global endpoints.
+
+Apply it as a service control policy on the organizational unit holding the account. An account
+outside an organization can attach the same document as a permissions boundary or to each
+principal, which is weaker and easier to forget. Until it is applied, the single-region design is
+an open gap rather than a bounded residual, and
+[`invariants.md`](../invariants.md) says so.
+
 ## Creating the role
 
 ```sh
