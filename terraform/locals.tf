@@ -44,6 +44,17 @@ locals {
   # because that guide states those conditions are unsupported for EventBridge publishing to an
   # encrypted topic. The root statement keeps the key administrable by the account after the
   # runner's session ends; without it the key would be owned by nobody.
+  # The role deploying this framework, recovered from its assumed-role session ARN. A caller that
+  # is not an assumed role is used as-is.
+  deploy_principal_arn = try(
+    format(
+      "arn:aws:iam::%s:role/%s",
+      data.aws_caller_identity.current.account_id,
+      regex("^arn:aws:sts::[0-9]{12}:assumed-role/([^/]+)/", data.aws_caller_identity.current.arn)[0],
+    ),
+    data.aws_caller_identity.current.arn,
+  )
+
   alert_key_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -53,6 +64,32 @@ locals {
         Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
         Action    = "kms:*"
         Resource  = "*"
+      },
+      {
+        # CreateKey refuses a policy that would not let its caller update the policy afterwards.
+        # Granting that through IAM would hang on a tag the key does not have until it exists, so
+        # the deploying role administers the key through the key policy itself.
+        Sid       = "DeployRoleAdministersTheKey"
+        Effect    = "Allow"
+        Principal = { AWS = local.deploy_principal_arn }
+        Action = [
+          "kms:CancelKeyDeletion",
+          "kms:CreateAlias",
+          "kms:DeleteAlias",
+          "kms:DescribeKey",
+          "kms:DisableKeyRotation",
+          "kms:EnableKeyRotation",
+          "kms:GetKeyPolicy",
+          "kms:GetKeyRotationStatus",
+          "kms:ListResourceTags",
+          "kms:PutKeyPolicy",
+          "kms:ScheduleKeyDeletion",
+          "kms:TagResource",
+          "kms:UntagResource",
+          "kms:UpdateAlias",
+          "kms:UpdateKeyDescription",
+        ]
+        Resource = "*"
       },
       {
         Sid       = "EventBridgePublishesThroughTheKey"

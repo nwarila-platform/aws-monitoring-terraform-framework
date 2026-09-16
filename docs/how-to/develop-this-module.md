@@ -53,4 +53,4 @@ Rules:
 - The PR title (which becomes the squash commit title) MUST be a Conventional Commit. Review it
   like code.
 - Automation prefixes such as `[bot]` never belong in the title; put them in the PR body.
-- Merging to `main` also deploys. Review the PR as the change to the live alerts that it is.
+- Merging to `main` deploys nothing. A runner adopts the merge by updating its framework pin.

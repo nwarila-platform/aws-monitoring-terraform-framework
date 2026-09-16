@@ -4,6 +4,7 @@ mock_provider "aws" {
   mock_data "aws_caller_identity" {
     defaults = {
       account_id = join("", ["123456", "789012"])
+      arn        = "arn:aws:sts::${join("", ["123456", "789012"])}:assumed-role/example-deploy-role/aws-deploy-42"
     }
   }
 }

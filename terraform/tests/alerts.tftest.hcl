@@ -6,6 +6,7 @@ mock_provider "aws" {
   mock_data "aws_caller_identity" {
     defaults = {
       account_id = join("", ["123456", "789012"])
+      arn        = "arn:aws:sts::${join("", ["123456", "789012"])}:assumed-role/example-deploy-role/aws-deploy-42"
     }
   }
 
@@ -290,6 +291,46 @@ run "the_key_admits_eventbridge_and_stays_administrable" {
       aws_kms_alias.us_east_1.name == "alias/security-change-alerts",
     ])
     error_message = "The key rotates yearly, waits the full 30 days before deletion, and is aliased as security-change-alerts."
+  }
+}
+
+# KMS refuses to create a key whose policy would not let the caller update it afterwards. The
+# deploying role is named in the key policy so that check never depends on a tag the key does not
+# have yet; its ARN is recovered from the assumed-role session the deploy runs as.
+run "the_key_policy_names_the_role_that_deploys_it" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      for statement in jsondecode(aws_kms_key.us_east_1.policy).Statement : alltrue([
+        statement.Principal.AWS == "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/example-deploy-role",
+        contains(statement.Action, "kms:PutKeyPolicy"),
+      ])
+      if statement.Sid == "DeployRoleAdministersTheKey"
+    ])
+    error_message = "The key policy must let the deploying role, not its session, administer the key."
+  }
+
+  assert {
+    condition     = length([for statement in jsondecode(aws_kms_key.us_east_1.policy).Statement : statement if statement.Sid == "DeployRoleAdministersTheKey"]) == 1
+    error_message = "Exactly one statement names the deploying role."
+  }
+}
+
+run "a_caller_that_is_not_an_assumed_role_is_named_as_itself" {
+  command = plan
+
+  override_data {
+    target = data.aws_caller_identity.current
+    values = {
+      account_id = "123456789012"
+      arn        = "arn:aws:iam::123456789012:user/operator"
+    }
+  }
+
+  assert {
+    condition     = local.deploy_principal_arn == "arn:aws:iam::123456789012:user/operator"
+    error_message = "An IAM user or role ARN must pass through unchanged."
   }
 }
 

@@ -22,7 +22,11 @@ fmt-check:
 	terraform -chdir=terraform fmt -check -recursive
 	@terraform fmt -check - < terraform/terraform.tfvars.example > /dev/null || \
 	{ echo "terraform/terraform.tfvars.example is not fmt-clean; run 'make fmt'"; exit 1; }
-	@git diff --check HEAD -- . || { echo "whitespace errors; see above"; exit 1; }
+	@# Against the empty tree, so every file is checked rather than only uncommitted changes.
+	@# Markdown keeps trailing spaces as hard breaks; the markdownlint config is a byte-identical
+	@# template mirror whose trailing blank line is not this repository's to change.
+	@git diff --check "$$(git hash-object -t tree /dev/null)" -- . ':!*.md' ':!.markdownlint-cli2.jsonc' || \
+	{ echo "whitespace errors; see above"; exit 1; }
 
 init:
 	terraform -chdir=terraform init -backend=false -input=false
