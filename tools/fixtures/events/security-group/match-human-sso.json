@@ -1,0 +1,25 @@
+{
+  "version": "0",
+  "id": "11111111-1111-1111-1111-111111111111",
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.ec2",
+  "account": "123456789012",
+  "time": "2026-09-16T12:00:00Z",
+  "region": "us-east-1",
+  "resources": [],
+  "detail": {
+    "eventSource": "ec2.amazonaws.com",
+    "eventName": "AuthorizeSecurityGroupIngress",
+    "userIdentity": {
+      "type": "AssumedRole",
+      "arn": "arn:aws:sts::123456789012:assumed-role/AWSReservedSSO_AdministratorAccess_abc/person",
+      "sessionContext": {
+        "sessionIssuer": {
+          "type": "Role",
+          "userName": "AWSReservedSSO_AdministratorAccess_abc"
+        }
+      }
+    },
+    "requestParameters": { "groupId": "sg-0123456789abcdef0" }
+  }
+}

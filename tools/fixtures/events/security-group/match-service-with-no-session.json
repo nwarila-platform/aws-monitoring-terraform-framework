@@ -1,0 +1,16 @@
+{
+  "version": "0",
+  "id": "22222222-2222-2222-2222-222222222222",
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.ec2",
+  "account": "123456789012",
+  "time": "2026-09-16T12:00:00Z",
+  "region": "us-east-1",
+  "resources": [],
+  "detail": {
+    "eventSource": "ec2.amazonaws.com",
+    "eventName": "CreateSecurityGroup",
+    "userIdentity": { "type": "AWSService", "invokedBy": "elasticloadbalancing.amazonaws.com" },
+    "requestParameters": { "groupName": "elb-managed" }
+  }
+}

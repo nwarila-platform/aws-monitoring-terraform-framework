@@ -1,0 +1,26 @@
+{
+  // Extensions this repository expects. VS Code offers these on first open of the folder.
+  "recommendations": [
+    // HCL has no native #region folding. resources.tf and locals.tf are navigated almost
+    // entirely by their region markers, so this one is not optional in practice.
+    "zokugun.explicit-folding",
+
+    // Terraform language server: fmt on save, validate, and go-to-definition across
+    // variables.tf / locals.tf / resources.tf.
+    "hashicorp.terraform",
+
+    // Honours .editorconfig (98 columns, LF, final newline, no trailing whitespace).
+    "editorconfig.editorconfig",
+
+    // .github/workflows/*.yaml
+    "redhat.vscode-yaml",
+
+    // docs/, using the repo's .markdownlint-cli2.jsonc
+    "davidanson.vscode-markdownlint",
+
+    // tools/check_docs_layout.py, invoked by `make docs-check`.
+    "ms-python.python"
+  ],
+
+  "unwantedRecommendations": []
+}

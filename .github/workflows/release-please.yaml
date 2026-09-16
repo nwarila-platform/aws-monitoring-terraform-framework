@@ -1,0 +1,28 @@
+name: Release Please
+
+# Caller for the canonical nwarila-platform/.github reusable-release-please
+# workflow (org ADR-0005: control-plane callers stay namespace-local).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Release Please
+    permissions:
+      contents: write # required for release-please to create tags and GitHub releases
+      pull-requests: write # required for release-please to open and update release PRs
+      issues: write # required for release-please issue and label bookkeeping
+      actions: write # required by the reusable to probe for release.yaml and dispatch release-evidence
+    uses: nwarila-platform/.github/.github/workflows/reusable-release-please.yaml@1923b2d024800b0bd11eb72de9af7c5788ffade1 # nwarila-platform/.github main @ 2026-07-30
+    with:
+      config_file: release-please-config.json
+      manifest_file: .release-please-manifest.json

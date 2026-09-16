@@ -1,0 +1,80 @@
+{
+  // ---------------------------------------------------------------------------------------
+  // Explicit Folding (zokugun.explicit-folding)
+  //
+  // HCL has no native #region support, so without this the region scaffolding in
+  // resources.tf and locals.tf is decoration rather than navigation. The patterns match this
+  // repo's marker form exactly - "#region ------ [ Title ] ----- #", padded to 98 columns -
+  // so an ordinary comment that happens to contain the word "region" never folds.
+  //
+  // Nesting is handled by the extension: an outer [ aws_instance ] region folds together
+  // with the inner [ aws_instance - us-east-1 ] region inside it.
+  // ---------------------------------------------------------------------------------------
+  "explicitFolding.rules": {
+    "terraform": [
+      {
+        "beginRegex": "^[\\s]*#region ------ \\[ .* \\] -+ #[\\s]*$",
+        "endRegex": "^[\\s]*#endregion --- \\[ .* \\] -+ #[\\s]*$",
+        "nested": true
+      }
+    ],
+    "terraform-vars": [
+      {
+        "beginRegex": "^[\\s]*#region ------ \\[ .* \\] -+ #[\\s]*$",
+        "endRegex": "^[\\s]*#endregion --- \\[ .* \\] -+ #[\\s]*$",
+        "nested": true
+      }
+    ]
+  },
+  "explicitFolding.notification": "minor",
+
+  // ---------------------------------------------------------------------------------------
+  // Editor - mirrors .editorconfig so behaviour is the same with or without that extension.
+  // ---------------------------------------------------------------------------------------
+  "editor.rulers": [98],
+  "files.eol": "\n",
+  "files.encoding": "utf8",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+
+  // The example value files are HCL but their extensions hide it. *.tftest.hcl is deliberately
+  // NOT mapped here: the Terraform extension recognises test files itself, and forcing them to
+  // the "terraform" language makes the language server validate them as configuration, which
+  // reports every run / mock_provider / variables block as an unexpected block.
+  "files.associations": {
+    "*.tfvars.example": "terraform-vars",
+    "backend.hcl.example": "terraform-vars"
+  },
+
+  // ---------------------------------------------------------------------------------------
+  // Terraform - format on save keeps `make fmt-check` green, which is a CI gate.
+  // ---------------------------------------------------------------------------------------
+  "[terraform]": {
+    "editor.defaultFormatter": "hashicorp.terraform",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+  "[terraform-vars]": {
+    "editor.defaultFormatter": "hashicorp.terraform",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+
+  // Markdown keeps trailing whitespace: .editorconfig exempts *.md because two trailing
+  // spaces are a hard line break.
+  "[markdown]": {
+    "files.trimTrailingWhitespace": false
+  },
+
+  "[makefile]": {
+    "editor.insertSpaces": false,
+    "editor.tabSize": 4
+  },
+
+  // The pinned Terraform version is exact (= 1.15.1); let the extension surface a mismatch
+  // rather than silently formatting with whatever is on PATH.
+  "terraform.languageServer.enable": true,
+  "terraform.validation.enableEnhancedValidation": true
+}

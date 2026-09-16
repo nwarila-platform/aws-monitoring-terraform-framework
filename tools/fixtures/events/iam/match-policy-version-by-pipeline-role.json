@@ -1,0 +1,22 @@
+{
+  "version": "0",
+  "id": "55555555-5555-5555-5555-555555555555",
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.iam",
+  "account": "123456789012",
+  "time": "2026-09-16T12:00:00Z",
+  "region": "us-east-1",
+  "resources": [],
+  "detail": {
+    "eventSource": "iam.amazonaws.com",
+    "eventName": "SetDefaultPolicyVersion",
+    "userIdentity": {
+      "type": "AssumedRole",
+      "arn": "arn:aws:sts::123456789012:assumed-role/EXEMPT_ROLE/aws-deploy-1",
+      "sessionContext": {
+        "sessionIssuer": { "type": "Role", "userName": "EXEMPT_ROLE" }
+      }
+    },
+    "requestParameters": { "policyArn": "arn:aws:iam::123456789012:policy/example", "versionId": "v3" }
+  }
+}

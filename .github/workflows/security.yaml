@@ -1,0 +1,48 @@
+name: Security
+
+# One visible security entrypoint. The detailed implementations stay in namespace-local reusable
+# workflows in nwarila-platform/.github so consumers can pin the same checks by SHA.
+
+on:
+  branch_protection_rule:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  merge_group:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: security-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  iac:
+    name: IaC and secret scan
+    permissions:
+      contents: read # required by the reusable scanner to inspect repository content
+      security-events: write # required to upload IaC and secret-scan SARIF
+      actions: read # required by CodeQL upload-sarif to associate results with the run
+    uses: nwarila-platform/.github/.github/workflows/reusable-iac-security.yaml@928b8a3d3dce43f4c2bdd8369fbf5ea86f53b681 # nwarila-platform/.github main @ 2026-07-20
+
+  codeql:
+    name: CodeQL
+    permissions:
+      contents: read # required by the reusable CodeQL workflow to inspect repository content
+      security-events: write # required to upload CodeQL SARIF
+      actions: read # required by CodeQL upload-sarif to associate results with the run
+    uses: nwarila-platform/.github/.github/workflows/reusable-codeql.yaml@928b8a3d3dce43f4c2bdd8369fbf5ea86f53b681 # nwarila-platform/.github main @ 2026-07-20
+
+  scorecard:
+    name: OpenSSF Scorecard
+    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' }}
+    permissions:
+      security-events: write # required to upload Scorecard SARIF
+      id-token: write # required by OpenSSF Scorecard tokenless attestation
+      actions: read # required by code-scanning upload metadata
+      contents: read # required by Scorecard repository checks
+    uses: nwarila-platform/.github/.github/workflows/reusable-scorecard.yaml@928b8a3d3dce43f4c2bdd8369fbf5ea86f53b681 # nwarila-platform/.github main @ 2026-07-20

@@ -1,0 +1,1 @@
+{"AdvancedEventSelectors":[{"Name":"Management events without KMS","FieldSelectors":[{"Field":"eventCategory","Equals":["Management"]},{"Field":"eventSource","NotEquals":["kms.amazonaws.com"]}]}]}
