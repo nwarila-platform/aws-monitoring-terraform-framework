@@ -447,6 +447,8 @@ resource "aws_s3_bucket_ownership_controls" "us_east_1_trail" {
 
 #region ------ [ aws_s3_bucket_server_side_encryption_configuration - us-east-1 ] -------------- #
 
+# S3-managed rather than customer-managed encryption is an accepted deviation: see ADR repo/0003.
+#trivy:ignore:AVD-AWS-0132
 resource "aws_s3_bucket_server_side_encryption_configuration" "us_east_1_trail" {
 
   # Define the Trail Log Bucket Encryption Properties. S3-managed keys rather than the alert key:
@@ -531,6 +533,9 @@ resource "aws_s3_bucket_policy" "us_east_1_trail" {
 
 #region ------ [ aws_cloudtrail - us-east-1 ] -------------------------------------------------- #
 
+# Logs encrypted with S3-managed keys rather than a KMS key is an accepted deviation: see ADR
+# repo/0003.
+#trivy:ignore:AVD-AWS-0015
 resource "aws_cloudtrail" "us_east_1" {
 
   # Define the Management Event Trail Properties. Multi-region and global service events are both
