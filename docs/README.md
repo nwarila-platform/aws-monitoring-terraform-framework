@@ -14,7 +14,6 @@ per
 ## How-to guides
 
 - [Develop this module](how-to/develop-this-module.md)
-- [Deploy and confirm recipients](how-to/deploy-and-confirm-recipients.md)
 
 ## Explanation
 
@@ -24,7 +23,6 @@ per
 
 ## Reference
 
-- [AWS IAM](reference/aws-iam/README.md)
 - [Invariants](reference/invariants.md)
 - [Mirroring](reference/mirroring.md)
 - [Release gates](reference/release-gates.md)

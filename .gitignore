@@ -23,7 +23,6 @@
 !/.github/PULL_REQUEST_TEMPLATE.md
 !/.github/renovate.json5
 !/.github/workflows/
-!/.github/workflows/aws-deploy.yaml
 !/.github/workflows/ci.yaml
 !/.github/workflows/repo-hygiene.yaml
 !/.github/workflows/release-please.yaml
@@ -35,11 +34,11 @@
 !/.vscode/extensions.json
 !/.vscode/settings.json
 
-# Terraform root module, its one deployment's values, and tests
+# Terraform module sources and tests
 !/terraform/
 !/terraform/.terraform.lock.hcl
 !/terraform/*.tf
-!/terraform/terraform.tfvars
+!/terraform/*.tfvars.example
 !/terraform/backend.hcl.example
 !/terraform/tests/
 !/terraform/tests/*.tftest.hcl
@@ -58,17 +57,8 @@
 !/docs/reference/release-gates.md
 !/docs/reference/runner-protocol.md
 !/docs/reference/terraform.md
-!/docs/reference/aws-iam/
-!/docs/reference/aws-iam/README.md
-!/docs/reference/aws-iam/roles/
-!/docs/reference/aws-iam/roles/*.trust.json
-!/docs/reference/aws-iam/policies/
-!/docs/reference/aws-iam/policies/*.json
-!/docs/reference/aws-iam/controls/
-!/docs/reference/aws-iam/controls/*.json
 !/docs/how-to/
 !/docs/how-to/develop-this-module.md
-!/docs/how-to/deploy-and-confirm-recipients.md
 !/docs/decision-records/
 !/docs/decision-records/README.md
 !/docs/decision-records/org/

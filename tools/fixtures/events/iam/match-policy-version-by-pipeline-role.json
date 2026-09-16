@@ -12,9 +12,9 @@
     "eventName": "SetDefaultPolicyVersion",
     "userIdentity": {
       "type": "AssumedRole",
-      "arn": "arn:aws:sts::123456789012:assumed-role/nwarila-platform_pdq-deploy-inventory_runner/aws-deploy-1",
+      "arn": "arn:aws:sts::123456789012:assumed-role/EXEMPT_ROLE/aws-deploy-1",
       "sessionContext": {
-        "sessionIssuer": { "type": "Role", "userName": "nwarila-platform_pdq-deploy-inventory_runner" }
+        "sessionIssuer": { "type": "Role", "userName": "EXEMPT_ROLE" }
       }
     },
     "requestParameters": { "policyArn": "arn:aws:iam::123456789012:policy/example", "versionId": "v3" }

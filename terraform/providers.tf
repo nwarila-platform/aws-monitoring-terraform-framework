@@ -4,9 +4,9 @@ provider "aws" {
 
   region = "us-east-1"
 
-  # Identity travels in the create request, which is the only place a tag-conditioned IAM policy
-  # can see it. A resource's own tags block is applied afterwards by a separate tagging call and
-  # never reaches the request. See local.identity_tags.
+  # The six identity keys go on every resource, including ones whose own tags block would be
+  # applied by a separate tagging call after creation. A deploy role that conditions creation on
+  # aws:RequestTag/RepositoryId depends on the key being in the create request itself.
   default_tags {
     tags = local.identity_tags
   }

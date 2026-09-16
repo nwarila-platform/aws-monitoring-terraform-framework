@@ -99,7 +99,7 @@ variable "repository" {
 
   validation {
     condition     = can(regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", var.repository))
-    error_message = "repository must be an owner/name slug (e.g. nwarila-platform/aws-cloudwatch-framework)."
+    error_message = "repository must be an owner/name slug (e.g. nwarila-platform/aws-monitoring-terraform-framework)."
   }
 
   validation {

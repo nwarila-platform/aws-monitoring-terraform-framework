@@ -12,8 +12,6 @@ PRs to `main` must pass:
   repository deliberately shapes differently, and reconciling the pin is tracked as follow-up.
 - `Repo Hygiene` (`nwarila-platform/.github` repo-hygiene policy)
 
-Merging to `main` runs `AWS Deploy`, which is not a gate but the deployment itself: it proves the
-trail, plans, applies, and verifies against AWS. A red deploy is a live incident, not a failed
-check.
+Merging to `main` deploys nothing. A runner adopts a merged commit by updating its framework pin.
 
 Workflow and action references are 40-character SHA-pinned per the repo-hygiene contract.

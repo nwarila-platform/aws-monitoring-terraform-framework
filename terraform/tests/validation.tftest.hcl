@@ -9,7 +9,7 @@ mock_provider "aws" {
 }
 
 variables {
-  repository            = "nwarila-platform/aws-cloudwatch-framework"
+  repository            = "nwarila-platform/aws-monitoring-terraform-framework"
   repository_id         = "123456789"
   commit_sha            = "0123456789abcdef0123456789abcdef01234567"
   run_id                = "42"
@@ -105,7 +105,7 @@ run "rejects_repository_without_owner" {
   command = plan
 
   variables {
-    repository = "aws-cloudwatch-framework"
+    repository = "aws-monitoring-terraform-framework"
   }
 
   expect_failures = [var.repository]

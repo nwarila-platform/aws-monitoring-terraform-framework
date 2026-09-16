@@ -9,7 +9,7 @@ mock_provider "aws" {
 }
 
 variables {
-  repository            = "nwarila-platform/aws-cloudwatch-framework"
+  repository            = "nwarila-platform/aws-monitoring-terraform-framework"
   repository_id         = "123456789"
   commit_sha            = "0123456789abcdef0123456789abcdef01234567"
   run_id                = "42"
@@ -29,7 +29,7 @@ run "identity_tags_carry_exactly_the_six_uniform_keys" {
       CommitSha    = "0123456789abcdef0123456789abcdef01234567"
       Environment  = "test"
       ManagedBy    = "Terraform"
-      Repository   = "nwarila-platform/aws-cloudwatch-framework"
+      Repository   = "nwarila-platform/aws-monitoring-terraform-framework"
       RepositoryId = "123456789"
       RunId        = "42"
     }

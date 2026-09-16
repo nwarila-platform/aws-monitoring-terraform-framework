@@ -1,0 +1,1 @@
+{"AdvancedEventSelectors":[{"Name":"Write management events","FieldSelectors":[{"Field":"eventCategory","Equals":["Management"]},{"Field":"readOnly","Equals":["false"]}]}]}

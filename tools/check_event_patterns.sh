@@ -8,7 +8,9 @@
 # named for the answer it must get, and a wrong answer fails the deploy before anything changes.
 #
 # Reads the saved plan rather than the deployed rules, so a broken pattern never reaches AWS.
-# Needs events:TestEventPattern.
+# Which roles are exempt is deployment data, so fixtures name the role EXEMPT_ROLE and it is
+# replaced with the first role the planned security-group pattern exempts. A deployment that
+# exempts nobody skips the fixtures that depend on an exemption. Needs events:TestEventPattern.
 
 set -euo pipefail
 
@@ -43,7 +45,19 @@ while read -r rule; do
     continue
   fi
 
+  exempt_role="$(printf '%s' "${pattern}" | jq -r '
+    .detail["$or"][0].userIdentity.sessionContext.sessionIssuer.userName[0]["anything-but"][0] // ""')"
+
   for fixture in "${fixture_dir}"/*.json; do
+    if grep -q EXEMPT_ROLE "${fixture}" && [ -z "${exempt_role}" ]; then
+      if [ "${key}" = "security-group" ]; then
+        printf 'skip %-28s %-42s no role is exempt in this deployment\n' "${name}" "$(basename "${fixture}")"
+        continue
+      fi
+      # The IAM fixture proves a pipeline role is NOT exempt from IAM; any role name proves that.
+      exempt_role="example-pipeline-role"
+    fi
+
     case "$(basename "${fixture}")" in
       match-*) expected=true ;;
       nomatch-*) expected=false ;;
@@ -52,7 +66,7 @@ while read -r rule; do
 
     actual="$(aws events test-event-pattern --region "${region}" \
       --event-pattern "${pattern}" \
-      --event "$(cat "${fixture}")" \
+      --event "$(sed "s/EXEMPT_ROLE/${exempt_role}/g" "${fixture}")" \
       --query Result --output text)"
     actual="$(printf '%s' "${actual}" | tr '[:upper:]' '[:lower:]')"
     checked=$((checked + 1))

@@ -23,12 +23,12 @@ What this module guarantees:
   pinned tooling. The workflow token is read-only for validation.
 - **Terraform to AWS provider registry.** `terraform init` downloads `hashicorp/aws` and
   verifies the selected artifact against the committed lock file.
-- **`main` to the workload account.** Only the deploy workflow, running on `refs/heads/main`,
+- **Runner to the workload account.** Only a runner's deploy workflow, running on its `main`,
   can assume the deploy role; the role's trust names the workflow file, the ref, and the
   repository id. Its permissions are the exact ARNs this module creates.
-- **CloudTrail to EventBridge.** The trail is owned outside this repository. The deploy proves
-  one is logging write management events before applying, because a rule with no trail behind
-  it is silent and green.
+- **CloudTrail to EventBridge.** The trail is created by this framework when `manage_trail` is
+  set, and is otherwise owned outside it. Either way the runner proves one is logging write
+  management events, because a rule with no trail behind it is silent and green.
 - **SNS to recipients.** Delivery is email. A recipient's inbox is outside every control here.
 
 ## Accepted residuals

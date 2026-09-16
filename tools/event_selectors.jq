@@ -1,29 +1,18 @@
-# Does this trail's event-selector configuration admit the write management events both alerts
-# need? Consumed by tools/check_cloudtrail.sh and proven by tools/test_check_cloudtrail.sh
-# against tools/fixtures/event-selectors/. Input is a get-event-selectors response; $sources is
-# the list of CloudTrail eventSource values the alerts depend on.
+# Does this trail's event-selector configuration record the write management events the alerts
+# need? Consumed by tools/check_cloudtrail.sh and proven by tools/test_check_cloudtrail.sh against
+# tools/fixtures/event-selectors/. Input is a get-event-selectors response.
+#
+# A trail cannot filter EC2 or IAM out of its management events: for management events CloudTrail
+# accepts an eventSource selector only as NotEquals kms.amazonaws.com or rdsdata.amazonaws.com. So
+# the only way a management-event trail can starve these alerts is by recording reads alone.
 
-# A selector admits a service unless it names eventSource and leaves that service out.
-def admits(sel; svc):
-  [ sel.FieldSelectors[]? | select(.Field == "eventSource") ] as $f
-  | ($f | length) == 0
-    or all($f[];
-         (if .Equals then (.Equals | index(svc)) != null else true end)
-         and (if .NotEquals then (.NotEquals | index(svc)) == null else true end));
-
-# readOnly true records reads only, which is the silent-green case this gate exists for.
 def keeps_writes(sel):
   all(sel.FieldSelectors[]?; .Field != "readOnly" or ((.Equals // []) != ["true"]));
 
-# A basic selector cannot narrow management events by service, so it admits every source.
 [
   ( .EventSelectors[]?
-    | select(.IncludeManagementEvents and .ReadWriteType != "ReadOnly")
-    | { FieldSelectors: [] } ),
+    | select(.IncludeManagementEvents and .ReadWriteType != "ReadOnly") ),
   ( .AdvancedEventSelectors[]?
     | select(any(.FieldSelectors[]; .Field == "eventCategory" and (.Equals // []) == ["Management"]))
     | select(keeps_writes(.)) )
-] as $qualifying
-
-# Both services must be admitted, though not necessarily by the same selector.
-| all($sources[]; . as $svc | any($qualifying[]; admits(.; $svc)))
+] | length > 0

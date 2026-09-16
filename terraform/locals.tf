@@ -213,8 +213,8 @@ locals {
       headline     = "IAM permissions changed"
       source       = "aws.iam"
       event_source = "iam.amazonaws.com"
-      # No exemption: every IAM change in this account is made by a person, and the volume is a
-      # few dozen a month.
+      # Never exempt: an IAM change is the quietest way to widen access, whoever makes it, and the
+      # measured volume is a few dozen a month.
       exempt_pipelines = false
       # The policy calls are here because a role's permissions change without any role-level
       # event: SetDefaultPolicyVersion on an attached managed policy re-grants every role that

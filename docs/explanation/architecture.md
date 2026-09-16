@@ -25,7 +25,7 @@ The module declares:
    calls are recorded in the region they target, which for this fleet is the same region.
 2. Because a logging trail exists, CloudTrail hands the record to the default EventBridge bus as
    an `AWS API Call via CloudTrail` event. Without a trail there is no event, which is why the
-   deploy workflow proves a trail before applying. A rule in the default `ENABLED` state matches
+   deploying runner proves a trail before applying. A rule in the default `ENABLED` state matches
    write management events, which is the whole category this framework alerts on.
 3. The rule whose `eventName` list names the call matches. The security-group rule additionally
    excludes the deploy pipelines named in `exempt_pipeline_roles`, and that exclusion is written
@@ -64,7 +64,7 @@ EventBridge retries a failed publish and then drops the event for good, so a bro
 a deleted topic would lose security changes with nothing said. Three things prevent that. The
 target falls back to a dead-letter queue that holds an undelivered alert for fourteen days. The
 retry window is one hour rather than the default day, because an alert that arrives tomorrow has
-already failed. Three alarms watch the two ways delivery breaks: EventBridge failing to deliver
+already failed. Four alarms watch the three ways delivery breaks, one per rule for the first: EventBridge failing to deliver
 to the topic, an alert sitting in the queue, and SNS accepting a publish and then failing to
 reach a recipient.
 

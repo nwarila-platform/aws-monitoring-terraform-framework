@@ -1,1 +1,0 @@
-{"AdvancedEventSelectors":[{"Name":"EC2","FieldSelectors":[{"Field":"eventCategory","Equals":["Management"]},{"Field":"eventSource","Equals":["ec2.amazonaws.com"]}]},{"Name":"IAM","FieldSelectors":[{"Field":"eventCategory","Equals":["Management"]},{"Field":"eventSource","Equals":["iam.amazonaws.com"]}]}]}

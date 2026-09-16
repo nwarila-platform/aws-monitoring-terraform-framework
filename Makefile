@@ -10,12 +10,19 @@ GUARD_EXCLUDE := ^(\.tmp/|\.themis/|terraform/\.terraform/|terraform/terraform\.
 .PHONY: fmt fmt-check init validate test trail-check docs docs-diff docs-check allowlist-check tflint ci
 
 # Mutating: rewrites HCL in place. Use locally before committing.
+# -recursive skips terraform.tfvars.example because fmt only walks .tf and .tfvars extensions,
+# so the example is piped through stdin mode separately.
 fmt:
 	terraform -chdir=terraform fmt -recursive
+	@formatted=$$(terraform fmt - < terraform/terraform.tfvars.example) && \
+	printf '%s\n' "$$formatted" > terraform/terraform.tfvars.example
 
 # Non-mutating: fails if any file would change. Use in CI.
 fmt-check:
 	terraform -chdir=terraform fmt -check -recursive
+	@terraform fmt -check - < terraform/terraform.tfvars.example > /dev/null || \
+	{ echo "terraform/terraform.tfvars.example is not fmt-clean; run 'make fmt'"; exit 1; }
+	@git diff --check HEAD -- . || { echo "whitespace errors; see above"; exit 1; }
 
 init:
 	terraform -chdir=terraform init -backend=false -input=false
