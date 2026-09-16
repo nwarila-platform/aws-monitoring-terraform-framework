@@ -12,6 +12,9 @@ The module declares:
   key, its `aws_sns_topic_policy`, and one `aws_sns_topic_subscription` per recipient.
 - Alerts: one `aws_cloudwatch_event_rule` per change alert and one `aws_cloudwatch_event_target`
   wiring it to the topic through an input transformer.
+- Health: a second `aws_sns_topic` with the same recipients, an `aws_sqs_queue` holding alerts
+  that could not be delivered, and three `aws_cloudwatch_metric_alarm` resources reporting to
+  the health topic.
 
 ## How an alert reaches an inbox
 
@@ -52,6 +55,20 @@ EventBridge sets no per-message subject when it publishes to SNS, so every alert
 SNS's fixed subject with the topic's display name as the sender. The headline is the first field
 of the body instead. A per-alert subject would need a function between the rule and the topic,
 which is more machinery than the alert is worth today.
+
+## When delivery fails
+
+EventBridge retries a failed publish and then drops the event for good, so a broken key policy or
+a deleted topic would lose security changes with nothing said. Three things prevent that. The
+target falls back to a dead-letter queue that holds an undelivered alert for fourteen days. The
+retry window is one hour rather than the default day, because an alert that arrives tomorrow has
+already failed. Three alarms watch the two ways delivery breaks: EventBridge failing to deliver
+to the topic, an alert sitting in the queue, and SNS accepting a publish and then failing to
+reach a recipient.
+
+The alarms report to a second topic carrying the same recipients. That separation is the point:
+an alarm about a broken alert topic cannot be delivered through that topic. Each of those metrics
+is published only when it is non-zero, so the alarms treat missing data as healthy.
 
 ## Proving what a pattern matches
 

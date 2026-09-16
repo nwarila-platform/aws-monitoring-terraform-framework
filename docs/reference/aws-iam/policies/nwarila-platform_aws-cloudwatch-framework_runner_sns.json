@@ -8,7 +8,10 @@
         }
       },
       "Effect": "Allow",
-      "Resource": "arn:aws:sns:us-east-1:<account-id>:security-change-alerts",
+      "Resource": [
+        "arn:aws:sns:us-east-1:<account-id>:security-change-alerts",
+        "arn:aws:sns:us-east-1:<account-id>:security-change-alerts-health"
+      ],
       "Sid": "CreateOnlyTheOneTopicTaggedAsThisRepositorys"
     },
     {
@@ -23,8 +26,11 @@
         "sns:UntagResource"
       ],
       "Effect": "Allow",
-      "Resource": "arn:aws:sns:us-east-1:<account-id>:security-change-alerts",
-      "Sid": "ManageOnlyTheOneTopic"
+      "Resource": [
+        "arn:aws:sns:us-east-1:<account-id>:security-change-alerts",
+        "arn:aws:sns:us-east-1:<account-id>:security-change-alerts-health"
+      ],
+      "Sid": "ManageOnlyBothTopics"
     },
     {
       "Action": [
@@ -32,8 +38,11 @@
         "sns:Unsubscribe"
       ],
       "Effect": "Allow",
-      "Resource": "arn:aws:sns:us-east-1:<account-id>:security-change-alerts",
-      "Sid": "ManageOnlyThisTopicsSubscriptions"
+      "Resource": [
+        "arn:aws:sns:us-east-1:<account-id>:security-change-alerts",
+        "arn:aws:sns:us-east-1:<account-id>:security-change-alerts-health"
+      ],
+      "Sid": "ManageOnlyTheseTopicsSubscriptions"
     }
   ],
   "Version": "2012-10-17"

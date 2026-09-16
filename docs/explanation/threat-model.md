@@ -56,6 +56,9 @@ What this module guarantees:
   rather than a residual. IAM is unaffected, because its events are global and land in the
   supported region.
 - **A pending subscription delivers nothing.** SNS emails a confirmation link; only the
-  recipient can follow it, and the deploy summary lists who has not.
+  recipient can follow it, and the deploy summary lists who has not. Each recipient now confirms
+  twice, once for alerts and once for channel health.
+- **The health channel is not itself watched.** If the health topic breaks, nothing reports it.
+  Watching the watcher has to stop somewhere, and this is where.
 - **Read calls are invisible.** `ENABLED` rules match write management events only. Reading a
   role's policy is not a change and is not alerted.

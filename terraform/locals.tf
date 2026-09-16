@@ -28,6 +28,16 @@ locals {
 
   alert_tags = merge(local.identity_tags, { Name = local.alert_name })
 
+  # The channel that reports on the alert channel. It is deliberately a second topic: an alarm
+  # about a broken alert topic cannot be delivered by that same topic.
+  health_name = "${local.alert_name}-health"
+  health_tags = merge(local.identity_tags, { Name = local.health_name })
+
+  # Where undelivered events land. EventBridge drops an event for good once its retries are
+  # exhausted, so without this a publishing failure loses the security change entirely.
+  dlq_name = "${local.alert_name}-dlq"
+  dlq_tags = merge(local.identity_tags, { Name = local.dlq_name })
+
   # EventBridge publishes through the topic's key, so the key policy must admit it. The SNS
   # developer guide's statement for event sources is reproduced exactly: kms:GenerateDataKey* and
   # kms:Decrypt to events.amazonaws.com, with NO aws:SourceArn or aws:SourceAccount condition,
@@ -51,6 +61,15 @@ locals {
         Action    = ["kms:GenerateDataKey*", "kms:Decrypt"]
         Resource  = "*"
       },
+      {
+        # The health topic carries alarm notifications and shares this key; CloudWatch is listed
+        # as an event source in the same SNS guide, with the same two actions.
+        Sid       = "CloudWatchPublishesThroughTheKey"
+        Effect    = "Allow"
+        Principal = { Service = "cloudwatch.amazonaws.com" }
+        Action    = ["kms:GenerateDataKey*", "kms:Decrypt"]
+        Resource  = "*"
+      },
     ]
   })
 
@@ -67,6 +86,40 @@ locals {
         Principal = { Service = "events.amazonaws.com" }
         Action    = "sns:Publish"
         Resource  = aws_sns_topic.us_east_1.arn
+      },
+    ]
+  })
+
+  health_topic_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "CloudWatchPublishesAlarms"
+        Effect    = "Allow"
+        Principal = { Service = "cloudwatch.amazonaws.com" }
+        Action    = "sns:Publish"
+        Resource  = aws_sns_topic.us_east_1_health.arn
+        Condition = { StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id } }
+      },
+    ]
+  })
+
+  # Only the two rules this framework owns may write to the queue, named individually rather
+  # than by wildcard so a third rule cannot quietly fill it.
+  dlq_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "EventBridgeSendsUndeliveredAlerts"
+        Effect    = "Allow"
+        Principal = { Service = "events.amazonaws.com" }
+        Action    = "sqs:SendMessage"
+        Resource  = aws_sqs_queue.us_east_1_dlq.arn
+        Condition = {
+          ArnEquals = {
+            "aws:SourceArn" = [for rule in aws_cloudwatch_event_rule.us_east_1 : rule.arn]
+          }
+        }
       },
     ]
   })

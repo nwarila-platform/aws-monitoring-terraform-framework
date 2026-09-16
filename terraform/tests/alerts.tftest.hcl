@@ -16,6 +16,14 @@ mock_provider "aws" {
       arn = "arn:aws:sns:us-east-1:${join("", ["123456", "789012"])}:security-change-alerts"
     }
   }
+
+  # The target's dead-letter ARN is validated the same way.
+  mock_resource "aws_sqs_queue" {
+    defaults = {
+      arn = "arn:aws:sqs:us-east-1:${join("", ["123456", "789012"])}:security-change-alerts-dlq"
+      id  = "https://sqs.us-east-1.amazonaws.com/${join("", ["123456", "789012"])}/security-change-alerts-dlq"
+    }
+  }
 }
 
 variables {
@@ -348,5 +356,89 @@ run "outputs_record_the_rules_and_pending_subscriptions" {
       sort(keys(output.alert_subscriptions)) == sort(["oncall@example.com", "security@example.com"]),
     ])
     error_message = "Outputs must record every rule's calls, the topic ARN, and one subscription per address."
+  }
+}
+
+# EventBridge drops an event for good when its retries run out, so an undeliverable alert must
+# land somewhere a person can still read it, and something must say that it happened.
+run "undelivered_alerts_are_kept_and_alarmed" {
+  command = apply
+
+  assert {
+    condition = alltrue([
+      for key, target in aws_cloudwatch_event_target.us_east_1 : alltrue([
+        target.dead_letter_config[0].arn == aws_sqs_queue.us_east_1_dlq.arn,
+        target.retry_policy[0].maximum_event_age_in_seconds == 3600,
+      ])
+    ])
+    error_message = "Every target must fall back to the dead-letter queue and stop retrying while the alert still matters."
+  }
+
+  assert {
+    condition     = aws_sqs_queue.us_east_1_dlq.message_retention_seconds == 1209600
+    error_message = "The queue must hold an undelivered alert for the full fourteen days SQS allows."
+  }
+
+  # Named rule ARNs rather than a wildcard: another rule in this account must not be able to
+  # fill the queue that reports on these alerts.
+  assert {
+    condition = jsondecode(aws_sqs_queue_policy.us_east_1_dlq.policy).Statement[0].Condition.ArnEquals["aws:SourceArn"] == [
+      # Map iteration is alphabetical, which is the order the policy is built in.
+      for key in ["iam", "security-group"] : aws_cloudwatch_event_rule.us_east_1[key].arn
+    ]
+    error_message = "The queue must accept messages only from this framework's own rules."
+  }
+}
+
+# A detection control that fails silently is the one failure mode it must not have. The alarms
+# report to a second topic, because an alarm about a broken alert topic cannot travel through it.
+run "the_alert_channel_reports_on_itself" {
+  command = apply
+
+  assert {
+    condition = alltrue([
+      for alarm in concat(
+        values(aws_cloudwatch_metric_alarm.us_east_1_failed_invocations),
+        [aws_cloudwatch_metric_alarm.us_east_1_undelivered, aws_cloudwatch_metric_alarm.us_east_1_notification_failures],
+        ) : alltrue([
+          alarm.alarm_actions == toset([aws_sns_topic.us_east_1_health.arn]),
+          # These metrics are published only when non-zero, so absent data is the healthy state.
+          alarm.treat_missing_data == "notBreaching",
+          alarm.threshold == 1,
+      ])
+    ])
+    error_message = "Every health alarm must notify the health topic and treat absent data as healthy."
+  }
+
+  assert {
+    condition = sort(output.health_alarms) == sort([
+      "security-change-alerts-iam-failed-invocations",
+      "security-change-alerts-notification-failures",
+      "security-change-alerts-security-group-failed-invocations",
+      "security-change-alerts-undelivered",
+    ])
+    error_message = "Three kinds of failure are watched: a rule that cannot deliver, an alert left undelivered, and a notification SNS could not send."
+  }
+
+  assert {
+    condition = alltrue([
+      # The mock hands every topic the same ARN, so identity is asserted on the real names.
+      aws_sns_topic.us_east_1_health.name == "security-change-alerts-health",
+      aws_sns_topic.us_east_1_health.name != aws_sns_topic.us_east_1.name,
+      aws_sns_topic.us_east_1_health.kms_master_key_id == aws_kms_key.us_east_1.key_id,
+      sort(keys(aws_sns_topic_subscription.us_east_1_health)) == sort(var.alert_emails),
+    ])
+    error_message = "The health topic must be a second encrypted topic carrying the same recipients."
+  }
+
+  assert {
+    condition = contains(jsondecode(aws_kms_key.us_east_1.policy).Statement, {
+      Sid       = "CloudWatchPublishesThroughTheKey"
+      Effect    = "Allow"
+      Principal = { Service = "cloudwatch.amazonaws.com" }
+      Action    = ["kms:GenerateDataKey*", "kms:Decrypt"]
+      Resource  = "*"
+    })
+    error_message = "The key must admit CloudWatch, or the alarms cannot publish to the encrypted health topic."
   }
 }

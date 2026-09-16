@@ -12,6 +12,10 @@ behavior without making AWS API calls.
   key policy admits EventBridge without a condition and keeps the account root, that the topic
   policy admits EventBridge only, that each address is one email subscription, that no addresses
   means no subscriptions and nothing else changes, and that the outputs record it all.
+- The reliability runs in `alerts.tftest.hcl` assert the dead-letter queue is wired to every
+  target with a one-hour retry window, that its policy names only this framework's rules, that
+  all three alarms report to the health topic and treat missing data as healthy, and that the
+  health topic is a second encrypted topic carrying the same recipients.
 - `tools/test_check_cloudtrail.sh` runs the trail gate's selector program against seven trail
   shapes, including the two that would otherwise pass while recording nothing the alerts need: a
   trail logging only read events, and one whose selectors exclude the alerted services.

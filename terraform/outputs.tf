@@ -44,3 +44,42 @@ output "alert_rules" {
 }
 
 #endregion --- [ Resource(s): aws_cloudwatch_event_rule ] -------------------------------------- #
+
+
+#region ------ [ Resource(s): aws_sns_topic.health ] ------------------------------------------- #
+
+output "health_topic_arn" {
+  description = <<-EOT
+    ARN of the topic that reports on the alert channel itself. Separate from the alert topic on
+    purpose: an alarm about a broken alert topic cannot be delivered by that topic.
+  EOT
+  value       = aws_sns_topic.us_east_1_health.arn
+}
+
+#endregion --- [ Resource(s): aws_sns_topic.health ] ------------------------------------------- #
+
+
+#region ------ [ Resource(s): aws_sqs_queue ] -------------------------------------------------- #
+
+output "undelivered_queue_url" {
+  description = "URL of the queue holding alerts EventBridge could not deliver, kept for fourteen days."
+  value       = aws_sqs_queue.us_east_1_dlq.id
+}
+
+#endregion --- [ Resource(s): aws_sqs_queue ] -------------------------------------------------- #
+
+
+#region ------ [ Resource(s): aws_cloudwatch_metric_alarm ] ------------------------------------ #
+
+output "health_alarms" {
+  description = "Names of the alarms watching the alert channel, for confirming they exist after a deploy."
+  value = sort(concat(
+    [for alarm in aws_cloudwatch_metric_alarm.us_east_1_failed_invocations : alarm.alarm_name],
+    [
+      aws_cloudwatch_metric_alarm.us_east_1_undelivered.alarm_name,
+      aws_cloudwatch_metric_alarm.us_east_1_notification_failures.alarm_name,
+    ],
+  ))
+}
+
+#endregion --- [ Resource(s): aws_cloudwatch_metric_alarm ] ------------------------------------ #

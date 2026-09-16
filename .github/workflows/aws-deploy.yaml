@@ -129,12 +129,25 @@ jobs:
             echo "rule ${rule} is ENABLED and targets the topic"
           done
           expected="$(terraform -chdir=terraform output -json alert_subscriptions | jq 'length')"
-          live="$(aws sns list-subscriptions-by-topic --topic-arn "${topic_arn}" \
-            --query 'length(Subscriptions)' --output text)"
-          if [ "${expected}" -eq 0 ] || [ "${live}" -lt "${expected}" ]; then
-            echo "::error::${live} subscriptions exist for ${expected} configured recipients; the channel cannot email anyone."
-            exit 1
-          fi
+          health_arn="$(terraform -chdir=terraform output -raw health_topic_arn)"
+          for arn in "${topic_arn}" "${health_arn}"; do
+            live="$(aws sns list-subscriptions-by-topic --topic-arn "${arn}" \
+              --query 'length(Subscriptions)' --output text)"
+            if [ "${expected}" -eq 0 ] || [ "${live}" -lt "${expected}" ]; then
+              echo "::error::${arn} has ${live} subscriptions for ${expected} configured recipients."
+              exit 1
+            fi
+          done
+          # An alarm that does not exist cannot report a channel that stopped working.
+          for alarm in $(terraform -chdir=terraform output -json health_alarms | jq -r '.[]'); do
+            state="$(aws cloudwatch describe-alarms --alarm-names "${alarm}" \
+              --query 'MetricAlarms[0].StateValue' --output text)"
+            if [ "${state}" = "None" ] || [ -z "${state}" ]; then
+              echo "::error::Alarm ${alarm} does not exist; the alert channel is unwatched."
+              exit 1
+            fi
+            echo "alarm ${alarm} is ${state}"
+          done
           {
             echo "## Change alerts deployed"
             echo

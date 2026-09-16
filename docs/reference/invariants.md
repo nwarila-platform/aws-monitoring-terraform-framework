@@ -28,6 +28,11 @@ Non-negotiable rules for this module. Violating one of these is a breaking chang
   actions to `events.amazonaws.com` with no source condition.
 - The topic policy MUST admit `sns:Publish` from `events.amazonaws.com` and no other principal.
 - Recipients MUST be email subscriptions created pending; nothing in this module MAY confirm one.
+- Every target MUST have a dead-letter queue, and that queue MUST accept messages only from this
+  framework's own rules, named individually rather than by wildcard.
+- The alert channel MUST report its own failures, and MUST do so through a topic other than the
+  one carrying the alerts. Alarms MUST treat missing data as healthy, because the metrics they
+  watch are published only when non-zero.
 - Deployment identity MUST arrive as command-line `-var` arguments and MUST be stamped on every
   taggable resource; the committed `terraform.tfvars` MUST NOT set it.
 - The deploy MUST prove a logging trail covers the region before applying, and MUST read the
