@@ -19,12 +19,13 @@ mock_provider "aws" {
 }
 
 variables {
-  repository    = "nwarila-platform/aws-cloudwatch-framework"
-  repository_id = "123456789"
-  commit_sha    = "0123456789abcdef0123456789abcdef01234567"
-  run_id        = "42"
-  environment   = "test"
-  alert_emails  = ["security@example.com", "oncall@example.com"]
+  repository            = "nwarila-platform/aws-cloudwatch-framework"
+  repository_id         = "123456789"
+  commit_sha            = "0123456789abcdef0123456789abcdef01234567"
+  run_id                = "42"
+  environment           = "test"
+  alert_emails          = ["security@example.com", "oncall@example.com"]
+  exempt_pipeline_roles = ["nwarila-platform_pdq-deploy-inventory_runner"]
 }
 
 # The rule IS the alert. Every write call that counts is named here, as an exact list, so a
@@ -33,57 +34,126 @@ run "security_group_rule_matches_exactly_the_documented_write_calls" {
   command = plan
 
   assert {
-    condition = jsondecode(aws_cloudwatch_event_rule.us_east_1["security-group"].event_pattern) == {
-      source        = ["aws.ec2"]
-      "detail-type" = ["AWS API Call via CloudTrail"]
-      detail = {
-        eventSource = ["ec2.amazonaws.com"]
-        eventName = [
-          "AuthorizeSecurityGroupEgress",
-          "AuthorizeSecurityGroupIngress",
-          "CreateSecurityGroup",
-          "DeleteSecurityGroup",
-          "ModifySecurityGroupRules",
-          "RevokeSecurityGroupEgress",
-          "RevokeSecurityGroupIngress",
-          "UpdateSecurityGroupRuleDescriptionsEgress",
-          "UpdateSecurityGroupRuleDescriptionsIngress",
-        ]
-      }
-    }
-    error_message = "The security-group rule must match exactly the nine EC2 security group write calls, and nothing else."
+    condition = jsondecode(aws_cloudwatch_event_rule.us_east_1["security-group"].event_pattern).detail.eventName == [
+      "AssociateSecurityGroupVpc",
+      "AuthorizeSecurityGroupEgress",
+      "AuthorizeSecurityGroupIngress",
+      "CreateSecurityGroup",
+      "DeleteSecurityGroup",
+      "DisassociateSecurityGroupVpc",
+      "ModifySecurityGroupRules",
+      "RevokeSecurityGroupEgress",
+      "RevokeSecurityGroupIngress",
+      "UpdateSecurityGroupRuleDescriptionsEgress",
+      "UpdateSecurityGroupRuleDescriptionsIngress",
+    ]
+    error_message = "The security-group rule must match exactly the eleven EC2 security group write calls, and nothing else."
+  }
+
+  assert {
+    condition = alltrue([
+      jsondecode(aws_cloudwatch_event_rule.us_east_1["security-group"].event_pattern).source == ["aws.ec2"],
+      jsondecode(aws_cloudwatch_event_rule.us_east_1["security-group"].event_pattern)["detail-type"] == ["AWS API Call via CloudTrail"],
+      jsondecode(aws_cloudwatch_event_rule.us_east_1["security-group"].event_pattern).detail.eventSource == ["ec2.amazonaws.com"],
+    ])
+    error_message = "The security-group rule must match the CloudTrail API-call events of the EC2 service."
   }
 }
 
-run "iam_role_rule_matches_exactly_the_documented_write_calls" {
+# A role's permissions change with no role-level event when an attached managed policy gets a new
+# default version, so the policy calls belong to this alert. AcquireRole builds a role from a
+# template and emits no CreateRole.
+run "iam_rule_matches_exactly_the_documented_write_calls" {
   command = plan
 
   assert {
-    condition = jsondecode(aws_cloudwatch_event_rule.us_east_1["iam-role"].event_pattern) == {
-      source        = ["aws.iam"]
-      "detail-type" = ["AWS API Call via CloudTrail"]
-      detail = {
-        eventSource = ["iam.amazonaws.com"]
-        eventName = [
-          "AttachRolePolicy",
-          "CreateRole",
-          "CreateServiceLinkedRole",
-          "DeleteRole",
-          "DeleteRolePermissionsBoundary",
-          "DeleteRolePolicy",
-          "DeleteServiceLinkedRole",
-          "DetachRolePolicy",
-          "PutRolePermissionsBoundary",
-          "PutRolePolicy",
-          "TagRole",
-          "UntagRole",
-          "UpdateAssumeRolePolicy",
-          "UpdateRole",
-          "UpdateRoleDescription",
-        ]
-      }
-    }
-    error_message = "The iam-role rule must match exactly the fifteen IAM role write calls, and nothing else."
+    condition = jsondecode(aws_cloudwatch_event_rule.us_east_1["iam"].event_pattern).detail.eventName == [
+      "AcquireRole",
+      "AddRoleToInstanceProfile",
+      "AttachRolePolicy",
+      "CreatePolicy",
+      "CreatePolicyVersion",
+      "CreateRole",
+      "CreateServiceLinkedRole",
+      "DeletePolicy",
+      "DeletePolicyVersion",
+      "DeleteRole",
+      "DeleteRolePermissionsBoundary",
+      "DeleteRolePolicy",
+      "DeleteServiceLinkedRole",
+      "DetachRolePolicy",
+      "PutRolePermissionsBoundary",
+      "PutRolePolicy",
+      "RemoveRoleFromInstanceProfile",
+      "SetDefaultPolicyVersion",
+      "TagRole",
+      "UntagRole",
+      "UpdateAssumeRolePolicy",
+      "UpdateRole",
+      "UpdateRoleDescription",
+    ]
+    error_message = "The iam rule must match exactly the twenty-three IAM role and policy write calls, and nothing else."
+  }
+
+  assert {
+    condition = alltrue([
+      jsondecode(aws_cloudwatch_event_rule.us_east_1["iam"].event_pattern).source == ["aws.iam"],
+      jsondecode(aws_cloudwatch_event_rule.us_east_1["iam"].event_pattern).detail.eventSource == ["iam.amazonaws.com"],
+    ])
+    error_message = "The iam rule must match the CloudTrail API-call events of the IAM service."
+  }
+}
+
+# The exemption is the one place an alert is deliberately narrowed, so its shape is pinned. Two
+# branches: the change was made by a role that is not exempt, or by an identity that carries no
+# assumed-role name at all. Without the second branch, a root-user or service-made change would
+# be silently dropped along with the pipelines.
+run "the_pipeline_exemption_still_matches_an_identity_with_no_session" {
+  command = plan
+
+  assert {
+    condition = jsondecode(aws_cloudwatch_event_rule.us_east_1["security-group"].event_pattern).detail["$or"] == [
+      {
+        userIdentity = {
+          sessionContext = {
+            sessionIssuer = {
+              userName = [{ "anything-but" = ["nwarila-platform_pdq-deploy-inventory_runner"] }]
+            }
+          }
+        }
+      },
+      {
+        userIdentity = {
+          sessionContext = {
+            sessionIssuer = {
+              userName = [{ exists = false }]
+            }
+          }
+        }
+      },
+    ]
+    error_message = "The security-group exemption must exclude the named roles while still matching events that carry no assumed-role identity."
+  }
+
+  assert {
+    condition     = !can(jsondecode(aws_cloudwatch_event_rule.us_east_1["iam"].event_pattern).detail["$or"])
+    error_message = "The IAM alert must never exempt a principal."
+  }
+}
+
+run "no_exempt_roles_means_no_exemption_clause" {
+  command = plan
+
+  variables {
+    exempt_pipeline_roles = []
+  }
+
+  assert {
+    condition = alltrue([
+      for key in ["security-group", "iam"] :
+      !can(jsondecode(aws_cloudwatch_event_rule.us_east_1[key].event_pattern).detail["$or"])
+    ])
+    error_message = "An empty exemption list must leave the patterns matching every principal."
   }
 }
 
@@ -104,8 +174,48 @@ run "rules_live_on_the_default_bus_and_are_enabled" {
   }
 
   assert {
-    condition     = sort(keys(aws_cloudwatch_event_rule.us_east_1)) == sort(["iam-role", "security-group"])
-    error_message = "Exactly two change alerts exist: iam-role and security-group."
+    condition     = sort(keys(aws_cloudwatch_event_rule.us_east_1)) == sort(["iam", "security-group"])
+    error_message = "Exactly two change alerts exist: iam and security-group."
+  }
+}
+
+# EventBridge parses the template as JSON and rejects anything else at PutTargets, which no
+# mocked provider ever calls. Substituting each placeholder with a JSON literal and decoding the
+# result is the closest a test can get to that check.
+run "the_message_template_is_json" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      for key, target in aws_cloudwatch_event_target.us_east_1 :
+      can(jsondecode(replace(target.input_transformer[0].input_template, "/<[^>]*>/", "0")))
+    ])
+    error_message = "Each input template must be valid JSON once its placeholders are substituted; a bare string is rejected by PutTargets."
+  }
+
+  assert {
+    condition = alltrue([
+      for key, target in aws_cloudwatch_event_target.us_east_1 : alltrue([
+        # The whole event as a JSON value: the only way requestParameters survives as an object.
+        strcontains(target.input_transformer[0].input_template, "\"event\": <aws.events.event.json>"),
+        strcontains(target.input_transformer[0].input_template, local.change_alerts[key].headline),
+        strcontains(target.input_transformer[0].input_template, "security-change-alerts-${key}"),
+      ])
+    ])
+    error_message = "Each template must carry the whole event, the alert's headline, and the rule that produced it."
+  }
+
+  assert {
+    condition = alltrue([
+      for key, target in aws_cloudwatch_event_target.us_east_1 : alltrue([
+        sort(keys(target.input_transformer[0].input_paths)) == sort(["account", "eventName", "region", "time"]),
+        alltrue([
+          for name in keys(target.input_transformer[0].input_paths) :
+          strcontains(target.input_transformer[0].input_template, "<${name}>")
+        ]),
+      ])
+    ])
+    error_message = "Every input path must be a field every CloudTrail API-call event carries, and must be quoted in the template."
   }
 }
 
@@ -133,29 +243,6 @@ run "every_rule_publishes_to_the_one_encrypted_topic" {
   assert {
     condition     = aws_kms_alias.us_east_1.target_key_id == aws_kms_key.us_east_1.key_id
     error_message = "The alias must point at the framework's own key."
-  }
-}
-
-# The email quotes these fields and nothing else; a renamed placeholder would render literally
-# in every alert.
-run "the_email_quotes_the_documented_fields" {
-  command = plan
-
-  assert {
-    condition = alltrue([
-      for key, target in aws_cloudwatch_event_target.us_east_1 : alltrue([
-        sort(keys(target.input_transformer[0].input_paths)) == sort([
-          "account", "eventId", "eventName", "principal", "region", "requestParameters", "sourceIp", "time",
-        ]),
-        alltrue([
-          for name in keys(target.input_transformer[0].input_paths) :
-          strcontains(target.input_transformer[0].input_template, "<${name}>")
-        ]),
-        strcontains(target.input_transformer[0].input_template, local.change_alerts[key].headline),
-        strcontains(target.input_transformer[0].input_template, "security-change-alerts-${key}"),
-      ])
-    ])
-    error_message = "Every input path must be quoted in the template alongside the alert's headline and rule name."
   }
 }
 
@@ -229,7 +316,8 @@ run "one_email_subscription_per_recipient" {
   }
 }
 
-# The bootstrap state: rules and topic exist, nobody is subscribed, nothing is delivered.
+# The bootstrap state outside prod: rules and topic exist, nobody is subscribed, nothing is
+# delivered. prod rejects this, which is covered in validation.tftest.hcl.
 run "no_recipients_means_no_subscriptions_and_nothing_else_changes" {
   command = plan
 
@@ -253,8 +341,8 @@ run "outputs_record_the_rules_and_pending_subscriptions" {
 
   assert {
     condition = alltrue([
-      sort(keys(output.alert_rules)) == sort(["iam-role", "security-group"]),
-      output.alert_rules["iam-role"].event_names == local.change_alerts["iam-role"].event_names,
+      sort(keys(output.alert_rules)) == sort(["iam", "security-group"]),
+      output.alert_rules["iam"].event_names == local.change_alerts["iam"].event_names,
       output.alert_rules["security-group"].name == "security-change-alerts-security-group",
       output.alert_topic_arn == aws_sns_topic.us_east_1.arn,
       sort(keys(output.alert_subscriptions)) == sort(["oncall@example.com", "security@example.com"]),

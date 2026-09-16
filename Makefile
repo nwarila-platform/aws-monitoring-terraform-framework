@@ -7,7 +7,7 @@ TFLINT ?= tflint
 # working-tree-only by construction, so excluding them cannot hide a deliverable.
 GUARD_EXCLUDE := ^(\.tmp/|\.themis/|terraform/\.terraform/|terraform/terraform\.tfstate(\.backup)?$$|terraform/\.terraform\.tfstate\.lock\.info$$|([^/]+/)*__pycache__/|([^/]+/)*[^/]+\.py[co]$$)
 
-.PHONY: fmt fmt-check init validate test docs docs-diff docs-check allowlist-check tflint ci
+.PHONY: fmt fmt-check init validate test trail-check docs docs-diff docs-check allowlist-check tflint ci
 
 # Mutating: rewrites HCL in place. Use locally before committing.
 fmt:
@@ -25,6 +25,11 @@ validate:
 
 test:
 	terraform -chdir=terraform test
+
+# The trail gate decides whether the alerts can fire at all, and its silent-pass cases are the
+# ones that matter, so its selector logic is proven offline against fixture trail shapes.
+trail-check:
+	bash tools/test_check_cloudtrail.sh
 
 # Mutating: regenerates the injected block in docs/reference/terraform.md.
 docs:
@@ -76,6 +81,7 @@ ci:
 	$(MAKE) init
 	$(MAKE) validate
 	$(MAKE) test
+	$(MAKE) trail-check
 	$(MAKE) tflint
 	$(MAKE) docs-diff
 	$(MAKE) docs-check

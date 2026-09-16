@@ -35,6 +35,7 @@ into three scopes per [ADR-0001](org/0001-use-architecture-decision-records.md):
 | # | Title | Status | Date | Summary |
 | --- | --- | --- | --- | --- |
 | [repo/0001](repo/0001-alert-from-eventbridge-not-log-metric-filters.md) | Alert From EventBridge, Not Log Metric Filters | Accepted | 2026-09-15 | Match CloudTrail events in EventBridge and publish to an encrypted SNS topic; the trail is a verified prerequisite, not a managed resource. |
+| [repo/0002](repo/0002-alert-on-what-a-person-will-act-on.md) | Alert on What a Person Will Act On | Accepted | 2026-09-16 | Cover the calls that change authorisation, exempt deploy pipelines from the security-group alert only, send JSON, and prove every pattern against EventBridge. |
 
 ## Authoring Rules
 

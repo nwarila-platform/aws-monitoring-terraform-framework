@@ -22,9 +22,11 @@ The module declares:
    an `AWS API Call via CloudTrail` event. Without a trail there is no event, which is why the
    deploy workflow proves a trail before applying. A rule in the default `ENABLED` state matches
    write management events, which is the whole category this framework alerts on.
-3. The rule whose `eventName` list names the call matches. Its target is the topic, and the
-   input transformer rewrites the event into a plain-text message quoting the principal, the
-   call, the source address, the time, the event id, and the request parameters.
+3. The rule whose `eventName` list names the call matches. The security-group rule additionally
+   excludes the deploy pipelines named in `exempt_pipeline_roles`, and that exclusion is written
+   as two branches so that an event carrying no assumed-role identity still matches. Its target
+   is the topic, and the input transformer renders the event as a JSON message carrying the
+   headline, the account, the region, the call, the time, the rule, and the whole original event.
 4. EventBridge publishes through the topic's KMS key, which the key policy admits, and SNS
    emails every confirmed subscription.
 
@@ -37,12 +39,27 @@ the exact write calls that count. Adding an alert is adding an entry there and a
 call list in `tests/alerts.tftest.hcl`. Adding a region is a code change across providers,
 locals, resources and tests, as it is in every framework of this type.
 
-## What the email cannot be
+## Why the email is JSON
+
+EventBridge parses a target's input template as JSON and rejects anything else, so the message is
+a JSON object rather than prose. That is also what keeps `requestParameters` readable: a JSON
+object referenced from inside a string has its quotes stripped, while the same object placed as a
+value survives intact. The template therefore quotes only fields every CloudTrail API-call event
+carries and attaches the rest of the record through the reserved whole-event value, because a
+path that is absent at runtime is dropped and would leave the message malformed.
 
 EventBridge sets no per-message subject when it publishes to SNS, so every alert arrives under
-SNS's fixed subject with the topic's display name as the sender. The headline is therefore the
-first line of the body. A per-alert subject would need a function between the rule and the
-topic, which is more machinery than the alert is worth today.
+SNS's fixed subject with the topic's display name as the sender. The headline is the first field
+of the body instead. A per-alert subject would need a function between the rule and the topic,
+which is more machinery than the alert is worth today.
+
+## Proving what a pattern matches
+
+A mocked test can assert what a pattern contains; only EventBridge can say what it matches. The
+deploy runs `tools/check_event_patterns.sh` against the saved plan, testing each rule with the
+fixtures under `tools/fixtures/events/`, whose names state the answer each must get. A pattern
+that stops matching a human change, or starts matching a read call, fails the deploy before
+anything reaches the account.
 
 ## Outputs
 

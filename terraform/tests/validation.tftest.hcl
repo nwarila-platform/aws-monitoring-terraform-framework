@@ -9,12 +9,13 @@ mock_provider "aws" {
 }
 
 variables {
-  repository    = "nwarila-platform/aws-cloudwatch-framework"
-  repository_id = "123456789"
-  commit_sha    = "0123456789abcdef0123456789abcdef01234567"
-  run_id        = "42"
-  environment   = "test"
-  alert_emails  = ["security@example.com"]
+  repository            = "nwarila-platform/aws-cloudwatch-framework"
+  repository_id         = "123456789"
+  commit_sha            = "0123456789abcdef0123456789abcdef01234567"
+  run_id                = "42"
+  environment           = "test"
+  exempt_pipeline_roles = []
+  alert_emails          = ["security@example.com"]
 }
 
 run "rejects_an_address_without_a_domain" {
@@ -117,4 +118,50 @@ run "rejects_metadata_tag_value_over_256_characters" {
   }
 
   expect_failures = [var.repository_id]
+}
+
+# A prod deployment with nobody subscribed applies green and can never email anyone.
+run "rejects_prod_with_no_recipients" {
+  command = plan
+
+  variables {
+    environment  = "prod"
+    alert_emails = []
+  }
+
+  expect_failures = [var.alert_emails]
+}
+
+run "accepts_an_empty_recipient_list_outside_prod" {
+  command = plan
+
+  variables {
+    environment  = "dev"
+    alert_emails = []
+  }
+
+  assert {
+    condition     = length(aws_sns_topic_subscription.us_east_1) == 0
+    error_message = "dev and test may bootstrap with no recipients."
+  }
+}
+
+run "rejects_an_exempt_role_written_as_an_arn" {
+  command = plan
+
+  variables {
+    exempt_pipeline_roles = ["arn:aws:iam::123456789012:role/nwarila-platform_jenkins_runner"]
+  }
+
+  expect_failures = [var.exempt_pipeline_roles]
+}
+
+run "rejects_the_same_exempt_role_twice" {
+  command = plan
+
+  variables {
+    exempt_pipeline_roles = ["nwarila-platform_jenkins_runner", "nwarila-platform_jenkins_runner"]
+  }
+
+  expect_failures = [var.exempt_pipeline_roles]
 }

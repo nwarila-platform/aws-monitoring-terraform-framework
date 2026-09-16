@@ -94,6 +94,12 @@ jobs:
             -var "repository_id=${GITHUB_REPOSITORY_ID}"                           \
             -var "run_id=${GITHUB_RUN_ID}"
 
+      # The mocked suite proves what a pattern contains; only EventBridge proves what it matches.
+      # The exemption makes that difference load-bearing, so the fixtures run against the saved
+      # plan before it is applied.
+      - name: Prove the planned event patterns against EventBridge
+        run: bash tools/check_event_patterns.sh terraform/tfplan
+
       - name: Terraform apply
         run: |
           set -euo pipefail
@@ -122,6 +128,13 @@ jobs:
             fi
             echo "rule ${rule} is ENABLED and targets the topic"
           done
+          expected="$(terraform -chdir=terraform output -json alert_subscriptions | jq 'length')"
+          live="$(aws sns list-subscriptions-by-topic --topic-arn "${topic_arn}" \
+            --query 'length(Subscriptions)' --output text)"
+          if [ "${expected}" -eq 0 ] || [ "${live}" -lt "${expected}" ]; then
+            echo "::error::${live} subscriptions exist for ${expected} configured recipients; the channel cannot email anyone."
+            exit 1
+          fi
           {
             echo "## Change alerts deployed"
             echo

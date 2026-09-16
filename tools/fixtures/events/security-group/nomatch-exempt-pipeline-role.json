@@ -1,0 +1,25 @@
+{
+  "version": "0",
+  "id": "33333333-3333-3333-3333-333333333333",
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.ec2",
+  "account": "123456789012",
+  "time": "2026-09-16T12:00:00Z",
+  "region": "us-east-1",
+  "resources": [],
+  "detail": {
+    "eventSource": "ec2.amazonaws.com",
+    "eventName": "CreateSecurityGroup",
+    "userIdentity": {
+      "type": "AssumedRole",
+      "arn": "arn:aws:sts::123456789012:assumed-role/nwarila-platform_pdq-deploy-inventory_runner/aws-deploy-1",
+      "sessionContext": {
+        "sessionIssuer": {
+          "type": "Role",
+          "userName": "nwarila-platform_pdq-deploy-inventory_runner"
+        }
+      }
+    },
+    "requestParameters": { "groupName": "pdq-eni-0-sg" }
+  }
+}

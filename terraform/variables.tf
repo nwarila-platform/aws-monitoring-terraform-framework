@@ -45,6 +45,38 @@ variable "alert_emails" {
     condition     = length(distinct(var.alert_emails)) == length(var.alert_emails)
     error_message = "alert_emails must not list the same address twice."
   }
+
+  # An empty list is the bootstrap state for dev and test. In prod it is a deployment that
+  # applies green, reports success, and can never email anyone.
+  validation {
+    condition     = var.environment != "prod" || length(var.alert_emails) > 0
+    error_message = "alert_emails must name at least one recipient when environment is \"prod\"."
+  }
+}
+
+variable "exempt_pipeline_roles" {
+  description = <<-EOT
+    IAM role names whose security-group changes are not emailed. This estate's deploy pipelines
+    rewrite security groups on every run, which measured 28,000 events in a month and drowns the
+    changes a person needs to see. The exemption is narrow by construction: it applies to the
+    security-group alert only, never to IAM, and an event carrying no assumed-role identity still
+    alerts. An empty list exempts nobody, which is the right setting for an account whose
+    deploys do not touch security groups.
+  EOT
+  type        = list(string)
+  nullable    = false
+
+  validation {
+    condition = alltrue([
+      for role in var.exempt_pipeline_roles : can(regex("^[A-Za-z0-9+=,.@_-]{1,64}$", role))
+    ])
+    error_message = "exempt_pipeline_roles entries must each be a bare IAM role name, not an ARN or a path."
+  }
+
+  validation {
+    condition     = length(distinct(var.exempt_pipeline_roles)) == length(var.exempt_pipeline_roles)
+    error_message = "exempt_pipeline_roles must not list the same role twice."
+  }
 }
 
 variable "repository" {

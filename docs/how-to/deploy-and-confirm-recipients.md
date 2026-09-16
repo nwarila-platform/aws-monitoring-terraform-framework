@@ -22,10 +22,12 @@ The deploy workflow needs three things that this repository does not create:
 
 ## Adding recipients
 
-1. Add each address to `alert_emails` in `terraform/terraform.tfvars`.
+1. Add each address to `alert_emails` in `terraform/terraform.tfvars`. A `prod` deployment with
+   an empty list is rejected at plan, because it would apply green and email nobody.
 2. Open a PR. `CI` validates the addresses; review the list as the access decision it is.
-3. Merge. `AWS Deploy` applies and its job summary lists every subscription and whether it is
-   still pending.
+3. Merge. `AWS Deploy` proves the trail, proves every pattern against EventBridge, applies, then
+   fails if fewer subscriptions exist than recipients configured. Its job summary lists every
+   subscription and whether it is still pending.
 4. Each recipient receives "AWS Notification - Subscription Confirmation" from
    `no-reply@sns.amazonaws.com` and must follow the link. A pending subscription delivers
    nothing and expires after three days; re-running the deploy re-sends it.
@@ -42,8 +44,11 @@ aws ec2 update-security-group-rule-descriptions-egress --group-id sg-<any group>
 ```
 
 The second call is on the security-group alert's list and should arrive within a minute or two,
-headed "Security group changed", naming your principal and the call. Revert the description
-afterwards. If nothing arrives, check in this order: the subscription is confirmed, the trail
+as a JSON message whose `alert` field reads "Security group changed" and whose `event` field
+carries the whole CloudTrail record, including your principal. Revert the description afterwards.
+
+Make that change as yourself, not from a pipeline. A role named in `exempt_pipeline_roles` is
+exempt from the security-group alert by design and will produce no email. If nothing arrives, check in this order: the subscription is confirmed, the trail
 check passes, the rule shows a non-zero `Invocations` metric in CloudWatch, and the topic's
 `NumberOfNotificationsFailed` metric is zero.
 

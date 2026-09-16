@@ -11,6 +11,10 @@
 set -euo pipefail
 
 region="${AWS_REGION:?AWS_REGION must name the region the rules deploy into}"
+tools_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# The CloudTrail eventSource values the deployed alerts depend on.
+alerted_sources='["ec2.amazonaws.com", "iam.amazonaws.com"]' 
 
 # A multi-region trail covers every region; a single-region trail covers only its home region.
 # Organization trails owned by the management account are listed here too.
@@ -37,14 +41,18 @@ while read -r trail; do
   fi
 
   # Basic selectors say so directly; advanced selectors say it as a Management event category.
-  # Either shape must admit write management events, or the rules see nothing.
+  # Either shape must admit write management events for BOTH alerted services, or the rules see
+  # nothing. An advanced selector is only proof if it also leaves writes in (readOnly true records
+  # reads only) and does not filter the service out: a management selector may narrow by
+  # eventSource, and a trail that excludes ec2 or iam passes a category-only test while
+  # delivering neither alert.
+  # Both alerted services must have their write management events recorded, or the rules see
+  # nothing. The selector semantics live in event_selectors.jq so that the fixture test proves
+  # the same program this gate runs.
   writes="$(aws cloudtrail get-event-selectors --trail-name "${trail}" --region "${region}" \
     --output json \
-    | jq -r '
-        (
-          [.EventSelectors[]? | select(.IncludeManagementEvents and .ReadWriteType != "ReadOnly")]
-          + [.AdvancedEventSelectors[]? | select(any(.FieldSelectors[]; .Field == "eventCategory" and (.Equals // []) == ["Management"]))]
-        ) | length > 0')"
+    | jq -r --argjson sources "${alerted_sources}" -f "${tools_dir}/event_selectors.jq")"
+
   if [ "${writes}" != "true" ]; then
     echo "trail ${trail} is logging but records no write management events"
     continue

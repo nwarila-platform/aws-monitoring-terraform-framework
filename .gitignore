@@ -91,4 +91,15 @@
 !/tools/
 !/tools/check_cloudtrail.sh
 !/tools/check_docs_layout.py
+!/tools/check_event_patterns.sh
+!/tools/event_selectors.jq
 !/tools/install_ci_tools.sh
+!/tools/test_check_cloudtrail.sh
+!/tools/fixtures/
+!/tools/fixtures/event-selectors/
+!/tools/fixtures/event-selectors/*.json
+!/tools/fixtures/events/
+!/tools/fixtures/events/iam/
+!/tools/fixtures/events/iam/*.json
+!/tools/fixtures/events/security-group/
+!/tools/fixtures/events/security-group/*.json

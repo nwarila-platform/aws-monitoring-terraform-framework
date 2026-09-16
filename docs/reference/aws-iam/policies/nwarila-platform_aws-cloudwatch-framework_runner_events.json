@@ -31,6 +31,12 @@
       "Effect": "Allow",
       "Resource": "arn:aws:events:us-east-1:<account-id>:rule/security-change-alerts-*",
       "Sid": "ManageOnlyRulesTaggedAsThisRepositorys"
+    },
+    {
+      "Action": "events:TestEventPattern",
+      "Effect": "Allow",
+      "Resource": "*",
+      "Sid": "ProveThePatternsBeforeApplying"
     }
   ],
   "Version": "2012-10-17"

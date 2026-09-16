@@ -29,13 +29,18 @@ No inline policies.
 - **The alias** is the one name `alias/security-change-alerts`; the rules are the one prefix
   `security-change-alerts-*`.
 - **CloudTrail** access is three read calls on `*`, which is the least `DescribeTrails` accepts.
+- **Testing a pattern** needs `events:TestEventPattern`, which takes no resource. The deploy uses
+  it to prove every planned rule against EventBridge before applying.
 - **State** is read and write on the one state object and its lock, with listing limited to those
   two keys.
 
 ## Accepted residuals
 
-- `kms:CreateKey` and `kms:ListAliases` cannot be scoped below `*`; the request-tag condition on
-  `CreateKey` is what bounds it.
+- `kms:CreateKey`, `kms:ListAliases` and `events:TestEventPattern` cannot be scoped below `*`;
+  the request-tag condition on `CreateKey` is what bounds it.
+- Subscription calls are granted on the topic ARN, not on a subscription-shaped ARN: SNS accepts
+  only topics as a policy resource, so a subscription ARN would grant nothing and the provider's
+  read after `Subscribe` would fail.
 - The `sub` claim's organisation-id form (`nwarila-platform@230745524`) is the one GitHub issues
   for this organisation; it is copied from the sibling repositories' live trusts.
 

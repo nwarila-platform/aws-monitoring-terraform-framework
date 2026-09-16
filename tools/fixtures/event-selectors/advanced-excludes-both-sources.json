@@ -1,0 +1,1 @@
+{"AdvancedEventSelectors":[{"Name":"Noisy sources dropped","FieldSelectors":[{"Field":"eventCategory","Equals":["Management"]},{"Field":"readOnly","Equals":["false"]},{"Field":"eventSource","NotEquals":["ec2.amazonaws.com","iam.amazonaws.com"]}]}]}

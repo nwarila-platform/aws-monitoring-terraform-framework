@@ -32,8 +32,8 @@
         "sns:Unsubscribe"
       ],
       "Effect": "Allow",
-      "Resource": "arn:aws:sns:us-east-1:<account-id>:security-change-alerts:*",
-      "Sid": "ManageOnlyThatTopicsSubscriptions"
+      "Resource": "arn:aws:sns:us-east-1:<account-id>:security-change-alerts",
+      "Sid": "ManageOnlyThisTopicsSubscriptions"
     }
   ],
   "Version": "2012-10-17"

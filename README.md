@@ -6,9 +6,13 @@ security group or an IAM role changes, and it is shaped so that further alerts a
 naming the API calls that count, not by writing new plumbing.
 
 Each alert is an EventBridge rule matching the CloudTrail record of the change, publishing to
-one KMS-encrypted SNS topic that emails every subscribed recipient. The email names the
-principal, the API call, the source address, the time, and the request parameters, so the
+one KMS-encrypted SNS topic that emails every subscribed recipient. The email is a JSON message
+carrying the call, the account, the region, the time, and the whole CloudTrail record, so the
 reader knows what changed and who changed it before opening the console.
+
+The deploy pipelines named in `exempt_pipeline_roles` do not raise security-group alerts. They
+rewrite security groups on every run, which measured 28,000 events a month in this estate. Their
+IAM changes still alert, and so does every change made by a person.
 
 This repository is its own deployment root: it owns the one deployment of these alerts and
 applies it from GitHub Actions on every merge to `main`. It does not own the CloudTrail trail
@@ -52,8 +56,9 @@ absent from `terraform.tfvars`. They become the `Repository`, `RepositoryId`, `C
 `RunId` provenance tags on every resource, so a value file must not be able to restate them.
 Omitting them fails the plan, which is the intended behavior.
 
-Recipients live in `terraform/terraform.tfvars` as `alert_emails`. Each address receives a
-confirmation email from SNS after apply and is delivered nothing until it follows the link. See
+Recipients live in `terraform/terraform.tfvars` as `alert_emails`. A `prod` deployment must name
+at least one. Each address receives a confirmation email from SNS after apply and is delivered
+nothing until it follows the link. See
 [deploy and confirm recipients](docs/how-to/deploy-and-confirm-recipients.md).
 
 ## Documentation

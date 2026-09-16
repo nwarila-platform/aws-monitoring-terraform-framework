@@ -81,20 +81,25 @@ locals {
   # rule in the default ENABLED state matches write management events only, so widening a list
   # here is the whole act of widening the alert.
   #
-  # Every event named here is delivered in us-east-1: security group calls because that is the
-  # region the fleet deploys into, and IAM calls because CloudTrail records global-service events
-  # as occurring in US East (N. Virginia).
+  # Every event named here is delivered in us-east-1: security group calls because the estate is
+  # confined to that region (see docs/reference/invariants.md), and IAM calls because CloudTrail
+  # records global-service events as occurring in US East (N. Virginia).
   change_alerts = {
     security-group = {
-      description  = "A security group, or one of its rules, was created, changed, or deleted."
+      description  = "A security group, its rules, or its VPC associations were created, changed, or deleted."
       headline     = "Security group changed"
       source       = "aws.ec2"
       event_source = "ec2.amazonaws.com"
+      # Pipeline roles are exempt here and nowhere else: this estate's deploys rewrite security
+      # groups on every run, which is 28,000 events a month that no person reads.
+      exempt_pipelines = true
       event_names = [
+        "AssociateSecurityGroupVpc",
         "AuthorizeSecurityGroupEgress",
         "AuthorizeSecurityGroupIngress",
         "CreateSecurityGroup",
         "DeleteSecurityGroup",
+        "DisassociateSecurityGroupVpc",
         "ModifySecurityGroupRules",
         "RevokeSecurityGroupEgress",
         "RevokeSecurityGroupIngress",
@@ -102,15 +107,27 @@ locals {
         "UpdateSecurityGroupRuleDescriptionsIngress",
       ]
     }
-    iam-role = {
-      description  = "An IAM role, its trust, its permissions, its boundary, or its tags changed."
-      headline     = "IAM role changed"
+    iam = {
+      description  = "An IAM role, or a managed policy that grants roles their permissions, changed."
+      headline     = "IAM permissions changed"
       source       = "aws.iam"
       event_source = "iam.amazonaws.com"
+      # No exemption: every IAM change in this account is made by a person, and the volume is a
+      # few dozen a month.
+      exempt_pipelines = false
+      # The policy calls are here because a role's permissions change without any role-level
+      # event: SetDefaultPolicyVersion on an attached managed policy re-grants every role that
+      # holds it. AcquireRole builds a role from a role template and emits no CreateRole.
       event_names = [
+        "AcquireRole",
+        "AddRoleToInstanceProfile",
         "AttachRolePolicy",
+        "CreatePolicy",
+        "CreatePolicyVersion",
         "CreateRole",
         "CreateServiceLinkedRole",
+        "DeletePolicy",
+        "DeletePolicyVersion",
         "DeleteRole",
         "DeleteRolePermissionsBoundary",
         "DeleteRolePolicy",
@@ -118,6 +135,8 @@ locals {
         "DetachRolePolicy",
         "PutRolePermissionsBoundary",
         "PutRolePolicy",
+        "RemoveRoleFromInstanceProfile",
+        "SetDefaultPolicyVersion",
         "TagRole",
         "UntagRole",
         "UpdateAssumeRolePolicy",
@@ -129,48 +148,68 @@ locals {
 
   # CloudTrail delivers API calls to EventBridge under one fixed detail-type; the source and
   # eventSource narrow to the service, and eventName to the exact calls above.
+  #
+  # The exemption is two branches under $or rather than one anything-but, because a bare
+  # anything-but on a nested field never matches an event that lacks the field: a root-user or
+  # AWS-service call carries no sessionIssuer, and excluding a pipeline role would have silently
+  # excluded those too. The second branch matches exactly that shape. tools/check_event_patterns.sh
+  # proves both branches against AWS's own matcher before any apply.
+  pipeline_exemption = {
+    "$or" = [
+      {
+        userIdentity = {
+          sessionContext = { sessionIssuer = { userName = [{ "anything-but" = var.exempt_pipeline_roles }] } }
+        }
+      },
+      {
+        userIdentity = {
+          sessionContext = { sessionIssuer = { userName = [{ exists = false }] } }
+        }
+      },
+    ]
+  }
+
   event_patterns = {
     for key, alert in local.change_alerts : key => jsonencode({
       source        = [alert.source]
       "detail-type" = ["AWS API Call via CloudTrail"]
-      detail = {
-        eventSource = [alert.event_source]
-        eventName   = alert.event_names
-      }
+      detail = merge(
+        {
+          eventSource = [alert.event_source]
+          eventName   = alert.event_names
+        },
+        alert.exempt_pipelines && length(var.exempt_pipeline_roles) > 0 ? local.pipeline_exemption : {},
+      )
     })
   }
 
-  # The fields the email quotes, read from the CloudTrail record. requestParameters is a JSON
-  # object and is inlined as one, so the email shows exactly what was asked of the API without
-  # this framework knowing every call's shape.
+  # The fields quoted in the message. Only paths that every "AWS API Call via CloudTrail" event
+  # carries: a path that is absent at runtime is dropped from the rendered template, which would
+  # leave malformed JSON. The principal, the source address and the request parameters are absent
+  # on some events and are read from the whole-event value instead.
   message_paths = {
-    account           = "$.account"
-    eventId           = "$.detail.eventID"
-    eventName         = "$.detail.eventName"
-    principal         = "$.detail.userIdentity.arn"
-    region            = "$.region"
-    requestParameters = "$.detail.requestParameters"
-    sourceIp          = "$.detail.sourceIPAddress"
-    time              = "$.detail.eventTime"
+    account   = "$.account"
+    eventName = "$.detail.eventName"
+    region    = "$.region"
+    time      = "$.time"
   }
 
-  # Plain text, not JSON: SNS emails the message body verbatim. Angle-bracket names are the
-  # message_paths keys above and are substituted by EventBridge, not by Terraform.
+  # EventBridge parses this template as JSON, so it IS JSON: a bare multi-line string is rejected
+  # by PutTargets and the target is never installed. Unquoted <placeholders> are substituted with
+  # the JSON value, so a string arrives quoted. aws.events.event.json is the reserved whole-event
+  # variable and is legal only as a value, which is what keeps requestParameters an object rather
+  # than the quote-stripped text an object becomes inside a string.
   message_templates = {
     for key, alert in local.change_alerts : key => <<-EOT
-      ${alert.headline} in AWS account <account>, region <region>.
-
-      Action      <eventName>
-      Principal   <principal>
-      Source IP   <sourceIp>
-      Time (UTC)  <time>
-      Event ID    <eventId>
-
-      Request parameters:
-      <requestParameters>
-
-      Recorded by CloudTrail and delivered by the EventBridge rule ${local.alert_name}-${key}.
-      Look the event up in CloudTrail Event history by its Event ID for the full record.
+      {
+        "alert": "${alert.headline}",
+        "account": <account>,
+        "region": <region>,
+        "action": <eventName>,
+        "time": <time>,
+        "rule": "${local.alert_name}-${key}",
+        "event": <aws.events.event.json>
+      }
     EOT
   }
 
