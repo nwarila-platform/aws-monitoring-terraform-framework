@@ -92,12 +92,18 @@ variable "manage_trail" {
 }
 
 variable "repository" {
-  description = "Path of the deploying repository, such as owner/name or group/subgroup/name, stamped as the Repository tag."
+  description = <<-EOT
+    Path of the deploying repository, such as owner/name or group/subgroup/name, stamped as the
+    Repository tag.
+  EOT
   type        = string
   nullable    = false
 
   validation {
-    condition     = can(regex("^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+$", var.repository))
+    condition = (
+      can(regex("^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+$", var.repository)) &&
+      alltrue([for segment in split("/", var.repository) : !contains([".", ".."], segment)])
+    )
     error_message = "repository must be a path of two or more segments, such as owner/name or group/subgroup/name."
   }
 
@@ -108,7 +114,10 @@ variable "repository" {
 }
 
 variable "repository_id" {
-  description = "Numeric, rename-stable id the source host gives the repository or project — the anchor of the deployment identity, stamped as the RepositoryId tag."
+  description = <<-EOT
+    Numeric, rename-stable id the source host gives the repository or project: the anchor of the
+    deployment identity, stamped as the RepositoryId tag.
+  EOT
   type        = string
   nullable    = false
 
@@ -124,7 +133,10 @@ variable "repository_id" {
 }
 
 variable "commit_sha" {
-  description = "Checked-out commit (git rev-parse HEAD after checkout, never a synthetic merge commit), stamped as the CommitSha tag."
+  description = <<-EOT
+    Checked-out commit (git rev-parse HEAD after checkout, never a synthetic merge commit),
+    stamped as the CommitSha tag.
+  EOT
   type        = string
   nullable    = false
 
@@ -135,7 +147,10 @@ variable "commit_sha" {
 }
 
 variable "run_id" {
-  description = "Numeric id of the pipeline run or build, stamped as the RunId tag. The run record holds actors, timestamps, and approvals; those stay in deployment evidence rather than in tags."
+  description = <<-EOT
+    Numeric id of the pipeline run or build, stamped as the RunId tag. The run record holds
+    actors, timestamps, and approvals; those stay in deployment evidence rather than in tags.
+  EOT
   type        = string
   nullable    = false
 

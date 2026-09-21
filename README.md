@@ -1,8 +1,9 @@
 # aws-monitoring-terraform-framework
 
-Terraform framework for monitoring and alerting on one AWS account in the supported `us_east_1`
-region. It is deliberately small: today it emails a list of recipients whenever a security group
-or IAM permissions change, and it is shaped so that further alerts are added by naming the API
+Terraform framework for monitoring and alerting on one AWS account, in the region its
+`providers.tf` targets. It is deliberately small: today it emails a list of recipients whenever a
+security group or
+IAM permissions change, and it is shaped so that further alerts are added by naming the API
 calls that count, not by writing new plumbing.
 
 Each alert is an EventBridge rule matching the CloudTrail record of the change, publishing to one

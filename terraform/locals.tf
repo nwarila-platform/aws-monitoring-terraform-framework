@@ -20,6 +20,17 @@ locals {
   #endregion --- [ Deployment Identity Tags ] -------------------------------------------------- #
 
 
+  #region ------ [ Global-Service Region ] ----------------------------------------------------- #
+
+  # CloudTrail records IAM calls in one region per partition and delivers them to EventBridge only
+  # there, so an IAM rule anywhere else is created successfully and never fires. A fact about AWS,
+  # not a choice: providers.tf still decides where a deployment goes, and this refuses the choices
+  # that would silence the IAM alert. A partition not listed here is not checked.
+  global_service_regions = { aws = "us-east-1", aws-us-gov = "us-gov-west-1" }
+
+  #endregion --- [ Global-Service Region ] ----------------------------------------------------- #
+
+
   #region ------ [ Alert Channel ] ------------------------------------------------------------- #
 
   # One topic, one key, and one name for both. Named for what it carries so the email sender,
@@ -223,9 +234,10 @@ locals {
   # rule in the default ENABLED state matches write management events only, so widening a list
   # here is the whole act of widening the alert.
   #
-  # Every event named here is delivered in us-east-1: security group calls because the estate is
-  # confined to that region (see docs/reference/invariants.md), and IAM calls because CloudTrail
-  # records global-service events as occurring in US East (N. Virginia).
+  # Every event named here must arrive in the provider's region. Security group calls are recorded
+  # where they are made, so the deployment's workloads must live in that region (see
+  # docs/reference/invariants.md). IAM calls are recorded only in the partition's global-service
+  # region, so the provider must target that region too; the rules refuse any other.
   change_alerts = {
     security-group = {
       description  = "A security group, its rules, or its VPC associations were created, changed, or deleted."
@@ -254,8 +266,7 @@ locals {
       headline     = "IAM permissions changed"
       source       = "aws.iam"
       event_source = "iam.amazonaws.com"
-      # Never exempt: an IAM change is the quietest way to widen access, whoever makes it, and the
-      # measured volume is a few dozen a month.
+      # Never exempt: an IAM change is the quietest way to widen access, whoever makes it.
       exempt_pipelines = false
       # The policy calls are here because a role's permissions change without any role-level
       # event: SetDefaultPolicyVersion on an attached managed policy re-grants every role that

@@ -1,8 +1,8 @@
 mock_provider "aws" {
   alias = "us_east_1"
 
-  # The commercial partition and the lab's region, so every ARN the framework writes renders the
-  # way the lab deploys it. tests/portability.tftest.hcl renders the GovCloud case.
+  # The commercial partition and region, so every ARN the framework writes renders the way a
+  # commercial deployment sees it. tests/portability.tftest.hcl renders the GovCloud case.
   mock_data "aws_partition" {
     defaults = {
       partition  = "aws"
@@ -37,7 +37,7 @@ mock_provider "aws" {
 }
 
 variables {
-  repository            = "nwarila-platform/aws-monitoring-terraform-framework"
+  repository            = "example-org/aws-monitoring"
   repository_id         = "123456789"
   commit_sha            = "0123456789abcdef0123456789abcdef01234567"
   run_id                = "42"

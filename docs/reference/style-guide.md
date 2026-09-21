@@ -12,7 +12,7 @@ Canonical filenames only, no numeric prefixes:
 | --- | --- |
 | `versions.tf` | `terraform { required_version, required_providers }` with exact `=` pins |
 | `backend.tf` | the partial S3 backend; bucket identities never in-repo |
-| `providers.tf` | the `us_east_1` provider alias and its `default_tags` |
+| `providers.tf` | the provider, its region, and its `default_tags`: the only file that names a region |
 | `variables.tf` | every `variable` block |
 | `data.tf` | every `data` block |
 | `locals.tf` | every `locals` block: the "brain", where all shaping happens |
@@ -35,7 +35,9 @@ Tests live in `terraform/tests/*.tftest.hcl`, named by subject.
 
 - Resources iterate maps via `for_each` with stable, human-readable keys; keys are part of the
   public contract.
-- Every block opens with `provider = aws.us_east_1`; properties follow alphabetically.
+- Every block opens with `provider = aws.us_east_1`; properties follow alphabetically. The alias
+  keeps aws-terraform-framework's name for continuity; the region it targets is set in
+  `providers.tf` and may be any region, including a GovCloud one.
 - Resource blocks consume locals, not `var.*` directly; `locals.tf` is the only place shaping
   logic lives.
 - Every taggable resource merges its `Name` under the six identity keys, which are also set as

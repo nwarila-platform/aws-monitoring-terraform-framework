@@ -3,8 +3,8 @@ mock_provider "aws" {
 
   # The key policy names the account root, so the identity lookup has to return an account-shaped
   # value rather than a random string.
-  # The commercial partition and the lab's region, so every ARN the framework writes renders the
-  # way the lab deploys it. tests/portability.tftest.hcl renders the GovCloud case.
+  # The commercial partition and region, so every ARN the framework writes renders the way a
+  # commercial deployment sees it. tests/portability.tftest.hcl renders the GovCloud case.
   mock_data "aws_partition" {
     defaults = {
       partition  = "aws"
@@ -43,14 +43,14 @@ mock_provider "aws" {
 }
 
 variables {
-  repository            = "nwarila-platform/aws-monitoring-terraform-framework"
+  repository            = "example-org/aws-monitoring"
   repository_id         = "123456789"
   commit_sha            = "0123456789abcdef0123456789abcdef01234567"
   run_id                = "42"
   environment           = "test"
   manage_trail          = false
   alert_emails          = ["security@example.com", "oncall@example.com"]
-  exempt_pipeline_roles = ["nwarila-platform_pdq-deploy-inventory_runner"]
+  exempt_pipeline_roles = ["example-pipeline-role"]
 }
 
 # The rule IS the alert. Every write call that counts is named here, as an exact list, so a
@@ -142,7 +142,7 @@ run "the_pipeline_exemption_still_matches_an_identity_with_no_session" {
         userIdentity = {
           sessionContext = {
             sessionIssuer = {
-              userName = [{ "anything-but" = ["nwarila-platform_pdq-deploy-inventory_runner"] }]
+              userName = [{ "anything-but" = ["example-pipeline-role"] }]
             }
           }
         }

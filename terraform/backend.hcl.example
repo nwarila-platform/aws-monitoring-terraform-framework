@@ -5,4 +5,4 @@
 # backend.tf because they are invariants for every deployment, not per-deployment choices.
 bucket = "REPLACE_ME-terraform"
 key    = "REPLACE_ME/aws-monitoring/terraform.tfstate"
-region = "us-east-1"
+region = "REPLACE_ME"

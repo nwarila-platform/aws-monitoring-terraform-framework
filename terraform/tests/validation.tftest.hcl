@@ -1,8 +1,8 @@
 mock_provider "aws" {
   alias = "us_east_1"
 
-  # The commercial partition and the lab's region, so every ARN the framework writes renders the
-  # way the lab deploys it. tests/portability.tftest.hcl renders the GovCloud case.
+  # The commercial partition and region, so every ARN the framework writes renders the way a
+  # commercial deployment sees it. tests/portability.tftest.hcl renders the GovCloud case.
   mock_data "aws_partition" {
     defaults = {
       partition  = "aws"
@@ -25,7 +25,7 @@ mock_provider "aws" {
 }
 
 variables {
-  repository            = "nwarila-platform/aws-monitoring-terraform-framework"
+  repository            = "example-org/aws-monitoring"
   repository_id         = "123456789"
   commit_sha            = "0123456789abcdef0123456789abcdef01234567"
   run_id                = "42"
@@ -87,7 +87,7 @@ run "rejects_uppercase_environment_case_variant" {
   expect_failures = [var.environment]
 }
 
-run "rejects_github_sha_style_uppercase" {
+run "rejects_an_uppercase_commit_sha" {
   command = plan
 
   variables {
@@ -167,7 +167,7 @@ run "rejects_an_exempt_role_written_as_an_arn" {
   command = plan
 
   variables {
-    exempt_pipeline_roles = ["arn:aws:iam::123456789012:role/nwarila-platform_jenkins_runner"]
+    exempt_pipeline_roles = ["arn:aws:iam::123456789012:role/example-ci-role"]
   }
 
   expect_failures = [var.exempt_pipeline_roles]
@@ -177,7 +177,7 @@ run "rejects_the_same_exempt_role_twice" {
   command = plan
 
   variables {
-    exempt_pipeline_roles = ["nwarila-platform_jenkins_runner", "nwarila-platform_jenkins_runner"]
+    exempt_pipeline_roles = ["example-ci-role", "example-ci-role"]
   }
 
   expect_failures = [var.exempt_pipeline_roles]
@@ -195,4 +195,54 @@ run "accepts_a_repository_path_nested_in_subgroups" {
     condition     = local.identity_tags["Repository"] == "infrastructure/aws/monitoring"
     error_message = "A nested repository path must reach the Repository tag unchanged."
   }
+}
+
+run "rejects_a_repository_path_with_a_leading_slash" {
+  command = plan
+
+  variables {
+    repository = "/group/repository"
+  }
+
+  expect_failures = [var.repository]
+}
+
+run "rejects_a_repository_path_with_a_trailing_slash" {
+  command = plan
+
+  variables {
+    repository = "group/repository/"
+  }
+
+  expect_failures = [var.repository]
+}
+
+run "rejects_a_repository_path_with_an_empty_segment" {
+  command = plan
+
+  variables {
+    repository = "group//repository"
+  }
+
+  expect_failures = [var.repository]
+}
+
+run "rejects_a_repository_path_that_climbs" {
+  command = plan
+
+  variables {
+    repository = "group/../repository"
+  }
+
+  expect_failures = [var.repository]
+}
+
+run "rejects_a_repository_path_with_a_dot_segment" {
+  command = plan
+
+  variables {
+    repository = "group/./repository"
+  }
+
+  expect_failures = [var.repository]
 }

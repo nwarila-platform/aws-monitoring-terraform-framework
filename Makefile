@@ -7,7 +7,7 @@ TFLINT ?= tflint
 # working-tree-only by construction, so excluding them cannot hide a deliverable.
 GUARD_EXCLUDE := ^(\.tmp/|\.themis/|terraform/\.terraform/|terraform/terraform\.tfstate(\.backup)?$$|terraform/\.terraform\.tfstate\.lock\.info$$|([^/]+/)*__pycache__/|([^/]+/)*[^/]+\.py[co]$$)
 
-.PHONY: fmt fmt-check init validate test trail-check docs docs-diff docs-check allowlist-check tflint ci
+.PHONY: fmt fmt-check init validate test trail-check portability-check docs docs-diff docs-check allowlist-check tflint ci
 
 # Mutating: rewrites HCL in place. Use locally before committing.
 # -recursive skips terraform.tfvars.example because fmt only walks .tf and .tfvars extensions,
@@ -41,6 +41,19 @@ test:
 # ones that matter, so its selector logic is proven offline against fixture trail shapes.
 trail-check:
 	bash tools/test_check_cloudtrail.sh
+
+# providers.tf is the only file that may say where a deployment goes, which is what lets one commit
+# deploy to a commercial or a GovCloud account by swapping that file alone. A partition written into
+# an ARN, or a region name, anywhere else ties every deployment to one environment. The partition
+# fact table in locals.tf is the single, named exception.
+portability-check:
+	@found=$$(grep -nE 'arn:aws:|"[a-z]{2}(-gov)?-[a-z]+-[0-9]+"' terraform/*.tf \
+	  | grep -v '^terraform/providers.tf:' | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#' \
+	  | grep -v 'global_service_regions = ' || true); \
+	if [ -n "$$found" ]; then \
+	  printf 'ERROR: a region or partition is named outside providers.tf:\n%s\n' "$$found"; exit 1; \
+	fi; \
+	printf 'portability-check: OK — only providers.tf names a region or partition\n'
 
 # Mutating: regenerates the injected block in docs/reference/terraform.md.
 docs:
@@ -93,6 +106,7 @@ ci:
 	$(MAKE) validate
 	$(MAKE) test
 	$(MAKE) trail-check
+	$(MAKE) portability-check
 	$(MAKE) tflint
 	$(MAKE) docs-diff
 	$(MAKE) docs-check
