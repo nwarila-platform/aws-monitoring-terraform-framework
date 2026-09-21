@@ -7,9 +7,9 @@
 
 resource "aws_kms_key" "us_east_1" {
 
-  # Define the Alert Topic Key Properties
   provider = aws.us_east_1
 
+  # Define the Alert Topic Key Properties
   deletion_window_in_days = 30
   description             = "Encrypts the ${local.alert_name} SNS topic at rest."
   enable_key_rotation     = true
@@ -29,9 +29,9 @@ resource "aws_kms_key" "us_east_1" {
 
 resource "aws_kms_alias" "us_east_1" {
 
-  # Define the Alert Topic Key Alias Properties
   provider = aws.us_east_1
 
+  # Define the Alert Topic Key Alias Properties
   name          = "alias/${local.alert_name}"
   target_key_id = aws_kms_key.us_east_1.key_id
 
@@ -48,9 +48,9 @@ resource "aws_kms_alias" "us_east_1" {
 
 resource "aws_sns_topic" "us_east_1" {
 
-  # Define the Alert Topic Properties
   provider = aws.us_east_1
 
+  # Define the Alert Topic Properties
   # The display name is the sender name recipients see. EventBridge sets no per-message subject,
   # so every email arrives under SNS's fixed subject and the headline is the body's first line.
   display_name      = "AWS security change alerts"
@@ -71,9 +71,9 @@ resource "aws_sns_topic" "us_east_1" {
 
 resource "aws_sns_topic_policy" "us_east_1" {
 
-  # Define the Alert Topic Policy Properties
   provider = aws.us_east_1
 
+  # Define the Alert Topic Policy Properties
   arn    = aws_sns_topic.us_east_1.arn
   policy = local.alert_topic_policy
 
@@ -92,7 +92,7 @@ resource "aws_sns_topic_subscription" "us_east_1" {
 
   # Iterate through all Alert Recipients in the US-East-1 region.
   provider = aws.us_east_1
-  for_each = toset(var.alert_emails)
+  for_each = local.alert_recipients
 
   # Define the Alert Subscription Properties. An email subscription is created pending and stays
   # so until the recipient confirms it; Terraform cannot confirm on their behalf.
@@ -113,9 +113,9 @@ resource "aws_sns_topic_subscription" "us_east_1" {
 
 resource "aws_sns_topic" "us_east_1_health" {
 
-  # Define the Health Topic Properties
   provider = aws.us_east_1
 
+  # Define the Health Topic Properties
   display_name      = "AWS security alert channel health"
   kms_master_key_id = aws_kms_key.us_east_1.key_id
   name              = local.health_name
@@ -134,9 +134,9 @@ resource "aws_sns_topic" "us_east_1_health" {
 
 resource "aws_sns_topic_policy" "us_east_1_health" {
 
-  # Define the Health Topic Policy Properties
   provider = aws.us_east_1
 
+  # Define the Health Topic Policy Properties
   arn    = aws_sns_topic.us_east_1_health.arn
   policy = local.health_topic_policy
 
@@ -156,7 +156,7 @@ resource "aws_sns_topic_subscription" "us_east_1_health" {
   # Iterate through all Alert Recipients in the US-East-1 region. The people who receive the
   # alerts are the people who must hear that the alerts stopped.
   provider = aws.us_east_1
-  for_each = toset(var.alert_emails)
+  for_each = local.alert_recipients
 
   # Define the Health Subscription Properties
   endpoint  = each.value
@@ -176,9 +176,9 @@ resource "aws_sns_topic_subscription" "us_east_1_health" {
 
 resource "aws_sqs_queue" "us_east_1_dlq" {
 
-  # Define the Dead-Letter Queue Properties
   provider = aws.us_east_1
 
+  # Define the Dead-Letter Queue Properties
   # Fourteen days is the SQS maximum and the point of the queue: an alert that could not be
   # delivered is kept until somebody reads it, rather than dropped when retries run out.
   message_retention_seconds = 1209600
@@ -201,9 +201,9 @@ resource "aws_sqs_queue" "us_east_1_dlq" {
 
 resource "aws_sqs_queue_policy" "us_east_1_dlq" {
 
-  # Define the Dead-Letter Queue Policy Properties
   provider = aws.us_east_1
 
+  # Define the Dead-Letter Queue Policy Properties
   policy    = local.dlq_policy
   queue_url = aws_sqs_queue.us_east_1_dlq.id
 
@@ -229,9 +229,9 @@ resource "aws_cloudwatch_event_rule" "us_east_1" {
   description    = each.value.description
   event_bus_name = "default"
   event_pattern  = local.event_patterns[each.key]
-  name           = "${local.alert_name}-${each.key}"
+  name           = local.rule_names[each.key]
   state          = "ENABLED"
-  tags           = merge(local.identity_tags, { Name = "${local.alert_name}-${each.key}" })
+  tags           = local.rule_tags[each.key]
 
   lifecycle {
     precondition {
@@ -279,13 +279,13 @@ resource "aws_cloudwatch_event_target" "us_east_1" {
   rule           = aws_cloudwatch_event_rule.us_east_1[each.key].name
   target_id      = local.alert_name
 
+  dead_letter_config {
+    arn = aws_sqs_queue.us_east_1_dlq.arn
+  }
+
   input_transformer {
     input_paths    = local.message_paths
     input_template = local.message_templates[each.key]
-  }
-
-  dead_letter_config {
-    arn = aws_sqs_queue.us_east_1_dlq.arn
   }
 
   retry_policy {
@@ -317,7 +317,7 @@ resource "aws_cloudwatch_metric_alarm" "us_east_1_failed_invocations" {
   # when it is non-zero, so missing data is the healthy state and must not read as alarm.
   alarm_actions       = [aws_sns_topic.us_east_1_health.arn]
   alarm_description   = "EventBridge could not deliver a ${each.key} alert to the topic."
-  alarm_name          = "${local.alert_name}-${each.key}-failed-invocations"
+  alarm_name          = local.failed_invocation_alarm_names[each.key]
   comparison_operator = "GreaterThanOrEqualToThreshold"
   datapoints_to_alarm = 1
   dimensions          = { RuleName = aws_cloudwatch_event_rule.us_east_1[each.key].name }
@@ -327,7 +327,7 @@ resource "aws_cloudwatch_metric_alarm" "us_east_1_failed_invocations" {
   ok_actions          = [aws_sns_topic.us_east_1_health.arn]
   period              = 300
   statistic           = "Sum"
-  tags                = merge(local.identity_tags, { Name = "${local.alert_name}-${each.key}-failed-invocations" })
+  tags                = local.failed_invocation_alarm_tags[each.key]
   threshold           = 1
   treat_missing_data  = "notBreaching"
 
@@ -339,13 +339,13 @@ resource "aws_cloudwatch_metric_alarm" "us_east_1_failed_invocations" {
 
 resource "aws_cloudwatch_metric_alarm" "us_east_1_undelivered" {
 
-  # Define the Undelivered-Alert Alarm Properties. A message in the queue is an alert that was
-  # never emailed; the queue holds it for fourteen days so it can still be read.
   provider = aws.us_east_1
 
+  # Define the Undelivered-Alert Alarm Properties. A message in the queue is an alert that was
+  # never emailed; the queue holds it for fourteen days so it can still be read.
   alarm_actions       = [aws_sns_topic.us_east_1_health.arn]
   alarm_description   = "A security change alert was never delivered and is waiting in ${local.dlq_name}."
-  alarm_name          = "${local.alert_name}-undelivered"
+  alarm_name          = local.undelivered_alarm_name
   comparison_operator = "GreaterThanOrEqualToThreshold"
   datapoints_to_alarm = 1
   dimensions          = { QueueName = aws_sqs_queue.us_east_1_dlq.name }
@@ -355,7 +355,7 @@ resource "aws_cloudwatch_metric_alarm" "us_east_1_undelivered" {
   ok_actions          = [aws_sns_topic.us_east_1_health.arn]
   period              = 300
   statistic           = "Maximum"
-  tags                = merge(local.identity_tags, { Name = "${local.alert_name}-undelivered" })
+  tags                = local.undelivered_alarm_tags
   threshold           = 1
   treat_missing_data  = "notBreaching"
 
@@ -367,13 +367,13 @@ resource "aws_cloudwatch_metric_alarm" "us_east_1_undelivered" {
 
 resource "aws_cloudwatch_metric_alarm" "us_east_1_notification_failures" {
 
-  # Define the Notification-Failure Alarm Properties. EventBridge counts a publish that SNS
-  # accepted as delivered, so a subscription that bounces is invisible to the alarm above.
   provider = aws.us_east_1
 
+  # Define the Notification-Failure Alarm Properties. EventBridge counts a publish that SNS
+  # accepted as delivered, so a subscription that bounces is invisible to the alarm above.
   alarm_actions       = [aws_sns_topic.us_east_1_health.arn]
   alarm_description   = "SNS accepted a security change alert and then failed to deliver it to a recipient."
-  alarm_name          = "${local.alert_name}-notification-failures"
+  alarm_name          = local.notification_failures_alarm_name
   comparison_operator = "GreaterThanOrEqualToThreshold"
   datapoints_to_alarm = 1
   dimensions          = { TopicName = aws_sns_topic.us_east_1.name }
@@ -383,7 +383,7 @@ resource "aws_cloudwatch_metric_alarm" "us_east_1_notification_failures" {
   ok_actions          = [aws_sns_topic.us_east_1_health.arn]
   period              = 300
   statistic           = "Sum"
-  tags                = merge(local.identity_tags, { Name = "${local.alert_name}-notification-failures" })
+  tags                = local.notification_failures_alarm_tags
   threshold           = 1
   treat_missing_data  = "notBreaching"
 
@@ -400,12 +400,13 @@ resource "aws_cloudwatch_metric_alarm" "us_east_1_notification_failures" {
 
 resource "aws_s3_bucket" "us_east_1_trail" {
 
-  # Define the Trail Log Bucket Properties
+  # Iterate through the Management Event Trail in the provider's region.
   provider = aws.us_east_1
-  count    = var.manage_trail ? 1 : 0
+  for_each = local.trails
 
-  bucket = local.trail_bucket
-  tags   = merge(local.identity_tags, { Name = local.trail_bucket })
+  # Define the Trail Log Bucket Properties
+  bucket = each.value.bucket
+  tags   = each.value.bucket_tags
 
   lifecycle {
     # This bucket is the account's audit record. A destroy here, or a lost state file followed by
@@ -426,13 +427,14 @@ resource "aws_s3_bucket" "us_east_1_trail" {
 
 resource "aws_s3_bucket_public_access_block" "us_east_1_trail" {
 
-  # Define the Trail Log Bucket Public-Access Properties
+  # Iterate through the Management Event Trail in the provider's region.
   provider = aws.us_east_1
-  count    = var.manage_trail ? 1 : 0
+  for_each = local.trails
 
+  # Define the Trail Log Bucket Public-Access Properties
   block_public_acls       = true
   block_public_policy     = true
-  bucket                  = aws_s3_bucket.us_east_1_trail[0].id
+  bucket                  = aws_s3_bucket.us_east_1_trail[each.key].id
   ignore_public_acls      = true
   restrict_public_buckets = true
 
@@ -449,11 +451,12 @@ resource "aws_s3_bucket_public_access_block" "us_east_1_trail" {
 
 resource "aws_s3_bucket_ownership_controls" "us_east_1_trail" {
 
-  # Define the Trail Log Bucket Ownership Properties
+  # Iterate through the Management Event Trail in the provider's region.
   provider = aws.us_east_1
-  count    = var.manage_trail ? 1 : 0
+  for_each = local.trails
 
-  bucket = aws_s3_bucket.us_east_1_trail[0].id
+  # Define the Trail Log Bucket Ownership Properties
+  bucket = aws_s3_bucket.us_east_1_trail[each.key].id
 
   rule {
     object_ownership = "BucketOwnerEnforced"
@@ -470,18 +473,18 @@ resource "aws_s3_bucket_ownership_controls" "us_east_1_trail" {
 
 #region ------ [ aws_s3_bucket_server_side_encryption_configuration - us-east-1 ] -------------- #
 
-# S3-managed rather than customer-managed encryption is an accepted deviation: see ADR repo/0003.
 #trivy:ignore:AVD-AWS-0132
 resource "aws_s3_bucket_server_side_encryption_configuration" "us_east_1_trail" {
+
+  # Iterate through the Management Event Trail in the provider's region.
+  provider = aws.us_east_1
+  for_each = local.trails
 
   # Define the Trail Log Bucket Encryption Properties. S3-managed keys rather than the alert key:
   # the logs hold the same metadata the alerts already email, and a customer key here costs a
   # further key and a further grant for no further protection. CIS 3.7 asks for KMS; that
   # deviation is recorded in docs/decision-records/repo/0003.
-  provider = aws.us_east_1
-  count    = var.manage_trail ? 1 : 0
-
-  bucket = aws_s3_bucket.us_east_1_trail[0].id
+  bucket = aws_s3_bucket.us_east_1_trail[each.key].id
 
   rule {
     apply_server_side_encryption_by_default {
@@ -502,11 +505,12 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "us_east_1_trail" 
 
 resource "aws_s3_bucket_lifecycle_configuration" "us_east_1_trail" {
 
-  # Define the Trail Log Bucket Lifecycle Properties
+  # Iterate through the Management Event Trail in the provider's region.
   provider = aws.us_east_1
-  count    = var.manage_trail ? 1 : 0
+  for_each = local.trails
 
-  bucket = aws_s3_bucket.us_east_1_trail[0].id
+  # Define the Trail Log Bucket Lifecycle Properties
+  bucket = aws_s3_bucket.us_east_1_trail[each.key].id
 
   rule {
     id     = "expire-management-event-logs"
@@ -536,12 +540,13 @@ resource "aws_s3_bucket_lifecycle_configuration" "us_east_1_trail" {
 
 resource "aws_s3_bucket_policy" "us_east_1_trail" {
 
-  # Define the Trail Log Bucket Policy Properties
+  # Iterate through the Management Event Trail in the provider's region.
   provider = aws.us_east_1
-  count    = var.manage_trail ? 1 : 0
+  for_each = local.trails
 
-  bucket = aws_s3_bucket.us_east_1_trail[0].id
-  policy = local.trail_bucket_policy
+  # Define the Trail Log Bucket Policy Properties
+  bucket = aws_s3_bucket.us_east_1_trail[each.key].id
+  policy = each.value.bucket_policy
 
   depends_on = [aws_s3_bucket_public_access_block.us_east_1_trail]
 
@@ -561,18 +566,19 @@ resource "aws_s3_bucket_policy" "us_east_1_trail" {
 #trivy:ignore:AVD-AWS-0015
 resource "aws_cloudtrail" "us_east_1" {
 
+  # Iterate through the Management Event Trail in the provider's region.
+  provider = aws.us_east_1
+  for_each = local.trails
+
   # Define the Management Event Trail Properties. Multi-region and global service events are both
   # required rather than preferred: a security group is recorded in the region of the call, and
   # IAM is a global service whose events are recorded in US East (N. Virginia).
-  provider = aws.us_east_1
-  count    = var.manage_trail ? 1 : 0
-
   enable_log_file_validation    = true
   include_global_service_events = true
   is_multi_region_trail         = true
-  name                          = local.trail_name
-  s3_bucket_name                = aws_s3_bucket.us_east_1_trail[0].id
-  tags                          = local.trail_tags
+  name                          = each.value.name
+  s3_bucket_name                = aws_s3_bucket.us_east_1_trail[each.key].id
+  tags                          = each.value.tags
 
   # CloudTrail refuses to create a trail it cannot write to, so the policy has to land first.
   depends_on = [aws_s3_bucket_policy.us_east_1_trail]
@@ -587,3 +593,46 @@ resource "aws_cloudtrail" "us_east_1" {
 #endregion --- [ aws_cloudtrail - us-east-1 ] -------------------------------------------------- #
 
 #endregion --- [ aws_cloudtrail ] -------------------------------------------------------------- #
+
+
+#region ------ [ moved ] ----------------------------------------------------------------------- #
+
+# The trail family was once addressed by count. These carry that state to the keyed addresses
+# rather than planning a replacement the trail and bucket refuse; a deployment that never had the
+# old addresses is unaffected.
+moved {
+  from = aws_s3_bucket.us_east_1_trail[0]
+  to   = aws_s3_bucket.us_east_1_trail["management-events"]
+}
+
+moved {
+  from = aws_s3_bucket_public_access_block.us_east_1_trail[0]
+  to   = aws_s3_bucket_public_access_block.us_east_1_trail["management-events"]
+}
+
+moved {
+  from = aws_s3_bucket_ownership_controls.us_east_1_trail[0]
+  to   = aws_s3_bucket_ownership_controls.us_east_1_trail["management-events"]
+}
+
+moved {
+  from = aws_s3_bucket_server_side_encryption_configuration.us_east_1_trail[0]
+  to   = aws_s3_bucket_server_side_encryption_configuration.us_east_1_trail["management-events"]
+}
+
+moved {
+  from = aws_s3_bucket_lifecycle_configuration.us_east_1_trail[0]
+  to   = aws_s3_bucket_lifecycle_configuration.us_east_1_trail["management-events"]
+}
+
+moved {
+  from = aws_s3_bucket_policy.us_east_1_trail[0]
+  to   = aws_s3_bucket_policy.us_east_1_trail["management-events"]
+}
+
+moved {
+  from = aws_cloudtrail.us_east_1[0]
+  to   = aws_cloudtrail.us_east_1["management-events"]
+}
+
+#endregion --- [ moved ] ----------------------------------------------------------------------- #

@@ -62,10 +62,10 @@ run "the_trail_records_what_both_alerts_need" {
 
   assert {
     condition = alltrue([
-      aws_cloudtrail.us_east_1[0].is_multi_region_trail == true,
-      aws_cloudtrail.us_east_1[0].include_global_service_events == true,
-      aws_cloudtrail.us_east_1[0].enable_log_file_validation == true,
-      aws_cloudtrail.us_east_1[0].name == "management-events",
+      aws_cloudtrail.us_east_1["management-events"].is_multi_region_trail == true,
+      aws_cloudtrail.us_east_1["management-events"].include_global_service_events == true,
+      aws_cloudtrail.us_east_1["management-events"].enable_log_file_validation == true,
+      aws_cloudtrail.us_east_1["management-events"].name == "management-events",
     ])
     error_message = "The trail must cover every region, include global service events, and validate its own log files."
   }
@@ -78,20 +78,20 @@ run "the_log_bucket_is_closed_and_expires_its_logs" {
 
   assert {
     condition = alltrue([
-      aws_s3_bucket_public_access_block.us_east_1_trail[0].block_public_acls == true,
-      aws_s3_bucket_public_access_block.us_east_1_trail[0].block_public_policy == true,
-      aws_s3_bucket_public_access_block.us_east_1_trail[0].ignore_public_acls == true,
-      aws_s3_bucket_public_access_block.us_east_1_trail[0].restrict_public_buckets == true,
-      tolist(aws_s3_bucket_ownership_controls.us_east_1_trail[0].rule)[0].object_ownership == "BucketOwnerEnforced",
+      aws_s3_bucket_public_access_block.us_east_1_trail["management-events"].block_public_acls == true,
+      aws_s3_bucket_public_access_block.us_east_1_trail["management-events"].block_public_policy == true,
+      aws_s3_bucket_public_access_block.us_east_1_trail["management-events"].ignore_public_acls == true,
+      aws_s3_bucket_public_access_block.us_east_1_trail["management-events"].restrict_public_buckets == true,
+      tolist(aws_s3_bucket_ownership_controls.us_east_1_trail["management-events"].rule)[0].object_ownership == "BucketOwnerEnforced",
     ])
     error_message = "The log bucket must block public access in all four ways and disable ACLs."
   }
 
   assert {
     condition = alltrue([
-      tolist(tolist(aws_s3_bucket_server_side_encryption_configuration.us_east_1_trail[0].rule)[0].apply_server_side_encryption_by_default)[0].sse_algorithm == "AES256",
-      aws_s3_bucket_lifecycle_configuration.us_east_1_trail[0].rule[0].expiration[0].days == 365,
-      aws_s3_bucket_lifecycle_configuration.us_east_1_trail[0].rule[0].status == "Enabled",
+      tolist(tolist(aws_s3_bucket_server_side_encryption_configuration.us_east_1_trail["management-events"].rule)[0].apply_server_side_encryption_by_default)[0].sse_algorithm == "AES256",
+      aws_s3_bucket_lifecycle_configuration.us_east_1_trail["management-events"].rule[0].expiration[0].days == 365,
+      aws_s3_bucket_lifecycle_configuration.us_east_1_trail["management-events"].rule[0].status == "Enabled",
     ])
     error_message = "The log bucket must be encrypted and must expire logs after a year."
   }
@@ -104,7 +104,7 @@ run "the_bucket_policy_admits_cloudtrail_and_only_this_trail" {
 
   assert {
     condition = alltrue([
-      for statement in jsondecode(aws_s3_bucket_policy.us_east_1_trail[0].policy).Statement : alltrue([
+      for statement in jsondecode(aws_s3_bucket_policy.us_east_1_trail["management-events"].policy).Statement : alltrue([
         statement.Principal.Service == "cloudtrail.amazonaws.com",
         statement.Condition.StringEquals["aws:SourceArn"] == "arn:aws:cloudtrail:us-east-1:${data.aws_caller_identity.current.account_id}:trail/management-events",
       ])
@@ -114,7 +114,7 @@ run "the_bucket_policy_admits_cloudtrail_and_only_this_trail" {
 
   assert {
     condition = [
-      for statement in jsondecode(aws_s3_bucket_policy.us_east_1_trail[0].policy).Statement : statement.Action
+      for statement in jsondecode(aws_s3_bucket_policy.us_east_1_trail["management-events"].policy).Statement : statement.Action
     ] == ["s3:GetBucketAcl", "s3:PutObject"]
     error_message = "The policy must grant exactly the ACL check and the object write CloudTrail needs."
   }

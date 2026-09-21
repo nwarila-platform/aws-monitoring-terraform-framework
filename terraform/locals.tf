@@ -31,6 +31,11 @@ locals {
 
   #endregion --- [ Global-Service Region ] ----------------------------------------------------- #
 
+}
+
+
+# Dynamically Configured LOCALS
+locals {
 
   #region ------ [ Alert Channel ] ------------------------------------------------------------- #
 
@@ -49,6 +54,13 @@ locals {
   # exhausted, so without this a publishing failure loses the security change entirely.
   dlq_name = "${local.alert_name}-dlq"
   dlq_tags = merge(local.identity_tags, { Name = local.dlq_name })
+
+  alert_recipients = toset(var.alert_emails)
+
+  undelivered_alarm_name           = "${local.alert_name}-undelivered"
+  undelivered_alarm_tags           = merge(local.identity_tags, { Name = local.undelivered_alarm_name })
+  notification_failures_alarm_name = "${local.alert_name}-notification-failures"
+  notification_failures_alarm_tags = merge(local.identity_tags, { Name = local.notification_failures_alarm_name })
 
   # The role deploying this framework, path and partition included.
   deploy_principal_arn = data.aws_iam_session_context.current.issuer_arn
@@ -174,7 +186,6 @@ locals {
   # alerts, because a trail is account-wide audit infrastructure that outlives them.
   trail_name   = "management-events"
   trail_bucket = "${data.aws_caller_identity.current.account_id}-cloudtrail"
-  trail_tags   = merge(local.identity_tags, { Name = local.trail_name })
 
   # Composed rather than read from the resource: the bucket policy has to name the trail, and the
   # trail cannot be created until that policy exists.
@@ -215,6 +226,16 @@ locals {
       },
     ]
   })
+
+  trails = var.manage_trail ? {
+    (local.trail_name) = {
+      bucket        = local.trail_bucket
+      bucket_policy = local.trail_bucket_policy
+      bucket_tags   = merge(local.identity_tags, { Name = local.trail_bucket })
+      name          = local.trail_name
+      tags          = merge(local.identity_tags, { Name = local.trail_name })
+    }
+  } : {}
 
   #endregion --- [ Management Event Trail ] ---------------------------------------------------- #
 
@@ -291,14 +312,22 @@ locals {
     }
   }
 
+  rule_names = { for key in keys(local.change_alerts) : key => "${local.alert_name}-${key}" }
+  rule_tags  = { for key, name in local.rule_names : key => merge(local.identity_tags, { Name = name }) }
+
+  failed_invocation_alarm_names = { for key, name in local.rule_names : key => "${name}-failed-invocations" }
+  failed_invocation_alarm_tags = {
+    for key, name in local.failed_invocation_alarm_names : key => merge(local.identity_tags, { Name = name })
+  }
+
   # CloudTrail delivers API calls to EventBridge under one fixed detail-type; the source and
   # eventSource narrow to the service, and eventName to the exact calls above.
   #
   # The exemption is two branches under $or rather than one anything-but, because a bare
   # anything-but on a nested field never matches an event that lacks the field: a root-user or
   # AWS-service call carries no sessionIssuer, and excluding a pipeline role would have silently
-  # excluded those too. The second branch matches exactly that shape. tools/check_event_patterns.sh
-  # proves both branches against AWS's own matcher before any apply.
+  # excluded those too. The second branch matches exactly that shape.
+  # tools/check_event_patterns.sh proves both branches against AWS's own matcher before any apply.
   pipeline_exemption = {
     "$or" = [
       {
@@ -354,7 +383,7 @@ locals {
         "region": <region>,
         "action": <eventName>,
         "time": <time>,
-        "rule": "${local.alert_name}-${key}",
+        "rule": "${local.rule_names[key]}",
         "event": <aws.events.event.json>
       }
     EOT

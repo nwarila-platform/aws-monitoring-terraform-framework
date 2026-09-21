@@ -1,6 +1,8 @@
 # Variable declarations. Deployment environment and recipients first, then the deployment
 # identity the runner supplies on the command line.
 
+#region ------ [ Framework Controls ] ---------------------------------------------------------- #
+
 variable "environment" {
   description = <<-EOT
     Deployment environment tag value applied to managed AWS resources. Exactly one of dev, test,
@@ -21,6 +23,11 @@ variable "environment" {
     ])
   }
 }
+
+#endregion --- [ Framework Controls ] ---------------------------------------------------------- #
+
+
+#region ------ [ Managed AWS Capabilities ] ---------------------------------------------------- #
 
 variable "alert_emails" {
   description = <<-EOT
@@ -107,6 +114,11 @@ variable "manage_trail" {
   nullable    = false
 }
 
+#endregion --- [ Managed AWS Capabilities ] ---------------------------------------------------- #
+
+
+#region ------ [ Deployment Identity ] --------------------------------------------------------- #
+
 variable "repository" {
   description = <<-EOT
     Path of the deploying repository, such as owner/name or group/subgroup/name, stamped as the
@@ -175,3 +187,5 @@ variable "run_id" {
     error_message = "run_id must be the numeric id of the pipeline run or build."
   }
 }
+
+#endregion --- [ Deployment Identity ] --------------------------------------------------------- #
