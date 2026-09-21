@@ -75,13 +75,15 @@ variable "exempt_pipeline_roles" {
     error_message = "exempt_pipeline_roles entries must each be a bare IAM role name or a name pattern using *, not an ARN or a path."
   }
 
-  # A pattern of wildcards alone would match every assumed-role session, people included, and
-  # silence the whole security-group alert. Consecutive wildcards are rejected by EventBridge.
+  # A pattern that starts with a wildcard can match any role, and AWSReservedSSO_ names the roles
+  # people sign in through; either would silence changes made by people. EventBridge rejects
+  # consecutive wildcards.
   validation {
     condition = alltrue([
-      for role in var.exempt_pipeline_roles : length(replace(role, "*", "")) > 0 && !strcontains(role, "**")
+      for role in var.exempt_pipeline_roles :
+      !startswith(role, "*") && !startswith(role, "AWSReservedSSO_") && !strcontains(role, "**")
     ])
-    error_message = "exempt_pipeline_roles entries must name something: a lone * or ** would exempt every role, people included."
+    error_message = "exempt_pipeline_roles entries must begin with a literal name that is not AWSReservedSSO_, and must not contain **: the exemption is for pipelines, never for people."
   }
 
   validation {

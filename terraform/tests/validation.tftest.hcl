@@ -281,6 +281,26 @@ run "rejects_an_exempt_pattern_that_matches_everyone" {
   expect_failures = [var.exempt_pipeline_roles]
 }
 
+run "rejects_an_exempt_pattern_that_starts_with_a_wildcard" {
+  command = plan
+
+  variables {
+    exempt_pipeline_roles = ["*_runner"]
+  }
+
+  expect_failures = [var.exempt_pipeline_roles]
+}
+
+run "rejects_an_exempt_pattern_covering_sign_in_roles" {
+  command = plan
+
+  variables {
+    exempt_pipeline_roles = ["AWSReservedSSO_DeveloperAccess_*"]
+  }
+
+  expect_failures = [var.exempt_pipeline_roles]
+}
+
 run "rejects_consecutive_wildcards" {
   command = plan
 
