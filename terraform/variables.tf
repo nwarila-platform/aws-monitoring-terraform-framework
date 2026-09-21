@@ -56,10 +56,13 @@ variable "alert_emails" {
 
 variable "exempt_pipeline_roles" {
   description = <<-EOT
-    IAM role names whose security-group changes are not emailed, for automation that rewrites
-    security groups on every run and would otherwise drown the changes a person needs to see. The
+    IAM role names, or name patterns using `*`, whose security-group changes are not emailed, for
+    automation that rewrites security groups on every run and would otherwise drown the changes a
+    person needs to see. A pattern such as `<org>_*_runner` covers every pipeline that follows a
+    naming convention, including ones added later, so the list cannot fall behind the fleet. The
     exemption is narrow by construction: it applies to the security-group alert only, never to
-    IAM, and an event carrying no assumed-role identity still alerts. The default exempts nobody.
+    IAM, so creating a role whose name matches still alerts; and an event carrying no assumed-role
+    identity still alerts. The default exempts nobody.
   EOT
   type        = list(string)
   default     = []
@@ -67,9 +70,18 @@ variable "exempt_pipeline_roles" {
 
   validation {
     condition = alltrue([
-      for role in var.exempt_pipeline_roles : can(regex("^[A-Za-z0-9+=,.@_-]{1,64}$", role))
+      for role in var.exempt_pipeline_roles : can(regex("^[A-Za-z0-9+=,.@_*-]{1,64}$", role))
     ])
-    error_message = "exempt_pipeline_roles entries must each be a bare IAM role name, not an ARN or a path."
+    error_message = "exempt_pipeline_roles entries must each be a bare IAM role name or a name pattern using *, not an ARN or a path."
+  }
+
+  # A pattern of wildcards alone would match every assumed-role session, people included, and
+  # silence the whole security-group alert. Consecutive wildcards are rejected by EventBridge.
+  validation {
+    condition = alltrue([
+      for role in var.exempt_pipeline_roles : length(replace(role, "*", "")) > 0 && !strcontains(role, "**")
+    ])
+    error_message = "exempt_pipeline_roles entries must name something: a lone * or ** would exempt every role, people included."
   }
 
   validation {

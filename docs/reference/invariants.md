@@ -16,7 +16,8 @@ Non-negotiable rules for this module. Violating one of these is a breaking chang
 - A principal exemption MUST apply to the security-group alert only, MUST never apply to IAM, and
   MUST keep matching events that carry no assumed-role identity. Excluding a nested field alone
   drops every event lacking that field, which would silently lose root-user and service-made
-  changes along with the pipelines.
+  changes along with the pipelines. An exemption entry MAY be a wildcard pattern, and MUST NOT be
+  wildcards alone, which would match every assumed-role session, people included.
 - Every rule's pattern MUST be proven against EventBridge with fixtures before an apply; a new
   alert MUST ship with its own fixtures under `tools/fixtures/events/<key>/`.
 - The target input template MUST be valid JSON, and the whole event MUST travel as a JSON value.

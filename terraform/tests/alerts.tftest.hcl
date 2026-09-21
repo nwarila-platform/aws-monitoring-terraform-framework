@@ -149,7 +149,7 @@ run "the_pipeline_exemption_still_matches_an_identity_with_no_session" {
         userIdentity = {
           sessionContext = {
             sessionIssuer = {
-              userName = [{ "anything-but" = ["example-pipeline-role"] }]
+              userName = [{ "anything-but" = { wildcard = ["example-pipeline-role"] } }]
             }
           }
         }

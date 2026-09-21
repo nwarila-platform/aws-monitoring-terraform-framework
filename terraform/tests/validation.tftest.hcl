@@ -253,3 +253,40 @@ run "rejects_a_repository_path_with_a_dot_segment" {
 
   expect_failures = [var.repository]
 }
+
+# A naming convention is a valid exemption, so a fleet's pipelines stay covered as it grows.
+run "accepts_an_exempt_role_pattern" {
+  command = plan
+
+  variables {
+    exempt_pipeline_roles = ["example-org_*_runner"]
+  }
+
+  assert {
+    condition = jsondecode(aws_cloudwatch_event_rule.us_east_1["security-group"].event_pattern).detail["$or"][0].userIdentity.sessionContext.sessionIssuer.userName == [
+      { "anything-but" = { wildcard = ["example-org_*_runner"] } }
+    ]
+    error_message = "A role pattern must reach the security-group rule as an anything-but wildcard."
+  }
+}
+
+# A lone wildcard would match every assumed-role session, people included.
+run "rejects_an_exempt_pattern_that_matches_everyone" {
+  command = plan
+
+  variables {
+    exempt_pipeline_roles = ["*"]
+  }
+
+  expect_failures = [var.exempt_pipeline_roles]
+}
+
+run "rejects_consecutive_wildcards" {
+  command = plan
+
+  variables {
+    exempt_pipeline_roles = ["example-org_**_runner"]
+  }
+
+  expect_failures = [var.exempt_pipeline_roles]
+}
