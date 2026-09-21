@@ -5,8 +5,10 @@ Non-negotiable rules for this module. Violating one of these is a breaking chang
 - Terraform Core and provider versions MUST remain exact-pinned.
 - `terraform/.terraform.lock.hcl` MUST be committed with checksums for the supported
   contributor and CI platforms.
-- `terraform/providers.tf` MUST be the only file that names a region, and no expression may write
-  an ARN partition literally. Every ARN the framework writes itself MUST take its partition from
+- `terraform/providers.tf` MUST be the only file that chooses a region, and no expression may
+  write an ARN partition literally. The one exception is the fact table `global_service_regions`
+  in `locals.tf`, which records where each supported partition delivers IAM events; it chooses
+  nothing and exists to refuse a region that would silence the IAM alert. Every ARN the framework writes itself MUST take its partition from
   `data.aws_partition` and any region from `data.aws_region`, so one commit deploys to commercial
   and GovCloud accounts by swapping that file alone. `tests/portability.tftest.hcl` enforces it.
 - Every alert MUST be an exact `eventName` list of write calls, asserted verbatim by test. A

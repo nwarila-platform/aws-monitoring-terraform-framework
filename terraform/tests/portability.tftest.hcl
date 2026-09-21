@@ -49,6 +49,12 @@ mock_provider "aws" {
     }
   }
 
+  mock_resource "aws_sns_topic_subscription" {
+    defaults = {
+      arn = "arn:aws-us-gov:sns:us-gov-west-1:${join("", ["123456", "789012"])}:security-change-alerts:00000000-0000-0000-0000-000000000000"
+    }
+  }
+
   mock_resource "aws_cloudwatch_event_rule" {
     defaults = {
       arn = "arn:aws-us-gov:events:us-gov-west-1:${join("", ["123456", "789012"])}:rule/security-change-alerts"
@@ -117,16 +123,62 @@ run "nothing_the_framework_produces_names_the_commercial_partition" {
           aws_sns_topic_policy.us_east_1_health.policy,
           aws_sqs_queue_policy.us_east_1_dlq.policy,
           jsonencode(output.alert_rules),
+          jsonencode(output.alert_subscriptions),
+          jsonencode(output.health_alarms),
           output.alert_topic_arn,
           output.health_topic_arn,
+          output.undelivered_queue_url,
         ],
         [for target in aws_cloudwatch_event_target.us_east_1 : target.arn],
         [for target in aws_cloudwatch_event_target.us_east_1 : target.dead_letter_config[0].arn],
-        [for alarm in aws_cloudwatch_metric_alarm.us_east_1_failed_invocations : jsonencode(alarm.alarm_actions)],
+        [
+          for alarm in concat(
+            values(aws_cloudwatch_metric_alarm.us_east_1_failed_invocations),
+            [aws_cloudwatch_metric_alarm.us_east_1_undelivered, aws_cloudwatch_metric_alarm.us_east_1_notification_failures],
+          ) : jsonencode([alarm.alarm_actions, alarm.ok_actions])
+        ],
       ) : !strcontains(document, "arn:aws:")
     ])
     error_message = "A GovCloud deployment must not produce a single commercial-partition ARN."
   }
+}
+
+# The same rule holds in the commercial partition: IAM events land in us-east-1 and nowhere else.
+run "a_commercial_region_that_cannot_see_iam_events_is_refused" {
+  command = plan
+
+  override_data {
+    target = data.aws_partition.current
+    values = {
+      partition  = "aws"
+      dns_suffix = "amazonaws.com"
+    }
+  }
+
+  override_data {
+    target = data.aws_region.current
+    values = {
+      region = "us-west-2"
+    }
+  }
+
+  expect_failures = [aws_cloudwatch_event_rule.us_east_1]
+}
+
+# A partition whose IAM region the framework does not know is refused rather than guessed at: a
+# wrong guess is exactly the silent failure the guard exists to prevent.
+run "a_partition_the_framework_does_not_know_is_refused" {
+  command = plan
+
+  override_data {
+    target = data.aws_partition.current
+    values = {
+      partition  = "aws-example"
+      dns_suffix = "example.com"
+    }
+  }
+
+  expect_failures = [aws_cloudwatch_event_rule.us_east_1]
 }
 
 # IAM events are recorded only in the partition's global-service region. A provider pointed

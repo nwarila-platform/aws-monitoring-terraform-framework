@@ -14,8 +14,8 @@ land in a dead-letter queue, and alarms report delivery failures to a separate h
 When asked, the framework also creates the multi-region CloudTrail trail the alerts depend on.
 
 This repository is the framework, not a deployment. A deployment pins a commit of it and supplies
-one value file per environment; nothing outside `terraform/providers.tf` names a region or an ARN
-partition, so the same commit deploys to a commercial or a GovCloud account by changing only that
+one value file per environment; nothing outside `terraform/providers.tf` chooses a region or writes
+an ARN partition, so the same commit deploys to a commercial or a GovCloud account by changing only that
 file. See the [runner protocol](docs/reference/runner-protocol.md).
 
 ## Quickstart

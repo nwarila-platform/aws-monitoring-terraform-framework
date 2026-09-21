@@ -25,7 +25,8 @@ locals {
   # CloudTrail records IAM calls in one region per partition and delivers them to EventBridge only
   # there, so an IAM rule anywhere else is created successfully and never fires. A fact about AWS,
   # not a choice: providers.tf still decides where a deployment goes, and this refuses the choices
-  # that would silence the IAM alert. A partition not listed here is not checked.
+  # that would silence the IAM alert. A partition not listed here is refused outright, because its
+  # IAM region is unknown and a guess would be the silent failure this exists to prevent.
   global_service_regions = { aws = "us-east-1", aws-us-gov = "us-gov-west-1" }
 
   #endregion --- [ Global-Service Region ] ----------------------------------------------------- #
