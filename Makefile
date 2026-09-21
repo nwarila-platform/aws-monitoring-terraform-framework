@@ -62,7 +62,7 @@ portability-check:
 	if [ -n "$$found" ]; then \
 	  printf 'ERROR: a region or partition is named outside providers.tf:\n%s\n' "$$found"; exit 1; \
 	fi; \
-	printf 'portability-check: OK — only providers.tf chooses a region, and no partition is written\n' 
+	printf 'portability-check: OK — only providers.tf chooses a region, and no partition is written\n'
 
 # Mutating: regenerates the injected block in docs/reference/terraform.md.
 docs:
