@@ -47,13 +47,15 @@ trail-check:
 # an ARN, or a region name, anywhere else ties every deployment to one environment. The partition
 # fact table in locals.tf is the single, named exception.
 portability-check:
-	@# Any ARN partition (aws, aws-us-gov, aws-cn, ...) or a bare partition or region string, in any
-	@# Terraform source under terraform/. Whole-line comments are skipped; a region named inside an
-	@# inline comment is flagged too, which errs on the loud side. The fact table is exempt only
-	@# for its own values.
+	@# Any ARN partition (aws, aws-us-gov, aws-cn, ...), a bare partition string, or a region name
+	@# anywhere in a line, quoted or embedded, in any Terraform source under terraform/. Whole-line
+	@# comments are skipped; a region named in an inline comment is flagged too, which errs on the
+	@# loud side, as does a non-region string shaped like one. providers.tf is exempt: it is the one
+	@# file each environment replaces, so a region or an ARN in its partition belongs there. The fact
+	@# table is exempt only for its own exact line.
 	@files=$$(find terraform -name '*.tf' -not -path '*/.terraform/*'); \
 	[ -n "$$files" ] || { echo "portability-check: no Terraform sources found"; exit 1; }; \
-	found=$$(grep -nHE 'arn:aws[a-z-]*:|"aws(-[a-z]+)+"|"[a-z]{2}(-gov|-iso[a-z]*)?-[a-z]+-[0-9]+"' $$files); \
+	found=$$(grep -nHE 'arn:aws[a-z-]*:|"aws(-[a-z]+)*"|(^|[^[:alnum:]])[a-z]{2}(-gov|-iso[a-z]*)?-(north|south|east|west|central|northeast|northwest|southeast|southwest)-[0-9]+([^[:alnum:]]|$$)' $$files); \
 	status=$$?; [ "$$status" -le 1 ] || { echo "portability-check: grep failed ($$status)"; exit 1; }; \
 	found=$$(printf '%s\n' "$$found" | grep -v '^terraform/providers.tf:' \
 	  | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#' \

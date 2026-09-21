@@ -2,9 +2,8 @@
 
 Terraform framework for monitoring and alerting on one AWS account, in the region its
 `providers.tf` targets. It is deliberately small: today it emails a list of recipients whenever a
-security group or
-IAM permissions change, and it is shaped so that further alerts are added by naming the API
-calls that count, not by writing new plumbing.
+security group or IAM permissions change, and it is shaped so that further alerts are added by
+naming the API calls that count, not by writing new plumbing.
 
 Each alert is an EventBridge rule matching the CloudTrail record of the change, publishing to one
 KMS-encrypted SNS topic that emails every subscribed recipient. The email is a JSON message
@@ -14,9 +13,9 @@ land in a dead-letter queue, and alarms report delivery failures to a separate h
 When asked, the framework also creates the multi-region CloudTrail trail the alerts depend on.
 
 This repository is the framework, not a deployment. A deployment pins a commit of it and supplies
-one value file per environment; nothing outside `terraform/providers.tf` chooses a region or writes
-an ARN partition, so the same commit deploys to a commercial or a GovCloud account by changing only that
-file. See the [runner protocol](docs/reference/runner-protocol.md).
+one value file per environment; nothing outside `terraform/providers.tf` chooses a region or
+writes an ARN partition, so the same commit deploys to a commercial or a GovCloud account by
+changing only that file. See the [runner protocol](docs/reference/runner-protocol.md).
 
 ## Quickstart
 

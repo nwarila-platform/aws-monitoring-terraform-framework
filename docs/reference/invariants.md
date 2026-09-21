@@ -8,9 +8,10 @@ Non-negotiable rules for this module. Violating one of these is a breaking chang
 - `terraform/providers.tf` MUST be the only file that chooses a region, and no expression may
   write an ARN partition literally. The one exception is the fact table `global_service_regions`
   in `locals.tf`, which records where each supported partition delivers IAM events; it chooses
-  nothing and exists to refuse a region that would silence the IAM alert. Every ARN the framework writes itself MUST take its partition from
-  `data.aws_partition` and any region from `data.aws_region`, so one commit deploys to commercial
-  and GovCloud accounts by swapping that file alone. `tests/portability.tftest.hcl` enforces it.
+  nothing and exists to refuse a region that would silence the IAM alert. Every ARN the framework
+  writes itself MUST take its partition from `data.aws_partition` and any region from
+  `data.aws_region`, so one commit deploys to commercial and GovCloud accounts by swapping that
+  file alone. `tests/portability.tftest.hcl` enforces it.
 - Every alert MUST be an exact `eventName` list of write calls, asserted verbatim by test. A
   pattern that matches by prefix, or that matches read calls, is not an alert this module ships.
 - A principal exemption MUST apply to the security-group alert only, MUST never apply to IAM, and
@@ -32,8 +33,8 @@ Non-negotiable rules for this module. Violating one of these is a breaking chang
   the default state is what matches write management events.
 - The key policy MUST name the deploying role for key administration, so that KMS's lockout safety
   check on `CreateKey` never depends on a tag the key cannot yet carry. The role MUST be named as
-  IAM reports it through `aws_iam_session_context`, never rebuilt from the session ARN, which drops
-  the role's path.
+  IAM reports it through `aws_iam_session_context`, never rebuilt from the session ARN, which
+  drops the role's path.
 - The topic MUST be encrypted with a key this module owns, with yearly rotation enabled, and the
   key policy MUST carry the SNS developer guide's statement for event sources verbatim: the two
   actions to `events.amazonaws.com` with no source condition.
