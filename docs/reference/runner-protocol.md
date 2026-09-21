@@ -90,6 +90,8 @@ A runner MUST, in this order:
 8. read the rules, targets, topics, subscriptions, and alarms back from AWS and fail on any
    mismatch.
 
-The deploy role needs, beyond the resources it manages, `events:TestEventPattern` and the
-CloudTrail read calls these scripts make: `ListTrails`, `DescribeTrails`, `GetTrailStatus`, and
+Every deploy role, in every environment, needs `iam:GetRole` on its own ARN: the framework asks IAM
+for the deploying role's real ARN, path included, to name it in the KMS key policy, and a plan fails
+without that permission. A pipeline that runs the proof scripts also needs `events:TestEventPattern`
+and the CloudTrail read calls they make: `ListTrails`, `DescribeTrails`, `GetTrailStatus`, and
 `GetEventSelectors`.

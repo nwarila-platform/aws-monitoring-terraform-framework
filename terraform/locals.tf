@@ -49,17 +49,8 @@ locals {
   dlq_name = "${local.alert_name}-dlq"
   dlq_tags = merge(local.identity_tags, { Name = local.dlq_name })
 
-  # The role deploying this framework, recovered from its assumed-role session ARN in whatever
-  # partition the provider targets. A caller that is not an assumed role is used as-is.
-  deploy_principal_arn = try(
-    format(
-      "arn:%s:iam::%s:role/%s",
-      data.aws_partition.current.partition,
-      data.aws_caller_identity.current.account_id,
-      regex("^arn:[^:]+:sts::[0-9]{12}:assumed-role/([^/]+)/", data.aws_caller_identity.current.arn)[0],
-    ),
-    data.aws_caller_identity.current.arn,
-  )
+  # The role deploying this framework, path and partition included.
+  deploy_principal_arn = data.aws_iam_session_context.current.issuer_arn
 
   # EventBridge publishes through the topic's key, so the key policy must admit it. The SNS
   # developer guide's statement for event sources is reproduced exactly: kms:GenerateDataKey* and

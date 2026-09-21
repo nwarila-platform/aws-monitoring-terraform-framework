@@ -25,7 +25,9 @@ Non-negotiable rules for this module. Violating one of these is a breaking chang
 - Every rule MUST be `ENABLED` on the `default` event bus: CloudTrail delivers there only, and
   the default state is what matches write management events.
 - The key policy MUST name the deploying role for key administration, so that KMS's lockout safety
-  check on `CreateKey` never depends on a tag the key cannot yet carry.
+  check on `CreateKey` never depends on a tag the key cannot yet carry. The role MUST be named as
+  IAM reports it through `aws_iam_session_context`, never rebuilt from the session ARN, which drops
+  the role's path.
 - The topic MUST be encrypted with a key this module owns, with yearly rotation enabled, and the
   key policy MUST carry the SNS developer guide's statement for event sources verbatim: the two
   actions to `events.amazonaws.com` with no source condition.

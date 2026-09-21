@@ -16,6 +16,13 @@ mock_provider "aws" {
     }
   }
 
+  # IAM's answer for the deploying session's role.
+  mock_data "aws_iam_session_context" {
+    defaults = {
+      issuer_arn = "arn:aws:iam::${join("", ["123456", "789012"])}:role/example-deploy-role"
+    }
+  }
+
   mock_data "aws_caller_identity" {
     defaults = {
       account_id = join("", ["123456", "789012"])

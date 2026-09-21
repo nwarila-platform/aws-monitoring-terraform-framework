@@ -18,6 +18,13 @@ mock_provider "aws" {
     }
   }
 
+  # IAM's answer for the deploying session's role.
+  mock_data "aws_iam_session_context" {
+    defaults = {
+      issuer_arn = "arn:aws:iam::${join("", ["123456", "789012"])}:role/example-deploy-role"
+    }
+  }
+
   mock_data "aws_caller_identity" {
     defaults = {
       account_id = join("", ["123456", "789012"])
@@ -332,20 +339,24 @@ run "the_key_policy_names_the_role_that_deploys_it" {
   }
 }
 
-run "a_caller_that_is_not_an_assumed_role_is_named_as_itself" {
+# The deploying role is named as IAM reports it, so a role under a path keeps that path. Rebuilding
+# it from the session ARN, which carries no path, would name a role that does not exist.
+run "a_role_under_a_path_is_named_with_its_path" {
   command = plan
 
   override_data {
-    target = data.aws_caller_identity.current
+    target = data.aws_iam_session_context.current
     values = {
-      account_id = "123456789012"
-      arn        = "arn:aws:iam::123456789012:user/operator"
+      issuer_arn = "arn:aws:iam::123456789012:role/automation/pipelines/example-deploy-role"
     }
   }
 
   assert {
-    condition     = local.deploy_principal_arn == "arn:aws:iam::123456789012:user/operator"
-    error_message = "An IAM user or role ARN must pass through unchanged."
+    condition = contains(
+      [for s in jsondecode(aws_kms_key.us_east_1.policy).Statement : s.Principal.AWS if s.Sid == "DeployRoleAdministersTheKey"],
+      "arn:aws:iam::123456789012:role/automation/pipelines/example-deploy-role",
+    )
+    error_message = "The key policy must name the deploying role with its full path."
   }
 }
 

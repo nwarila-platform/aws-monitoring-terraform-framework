@@ -19,6 +19,14 @@ mock_provider "aws" {
     }
   }
 
+  # IAM's answer for the deploying session's role, deliberately under a path: the path is exactly
+  # what rebuilding the ARN from the session would lose.
+  mock_data "aws_iam_session_context" {
+    defaults = {
+      issuer_arn = "arn:aws-us-gov:iam::${join("", ["123456", "789012"])}:role/automation/example-deploy-role"
+    }
+  }
+
   mock_data "aws_caller_identity" {
     defaults = {
       account_id = join("", ["123456", "789012"])
@@ -69,7 +77,7 @@ run "every_arn_the_framework_writes_takes_the_providers_partition_and_region" {
       contains([for s in jsondecode(aws_kms_key.us_east_1.policy).Statement : s.Principal.AWS if s.Sid == "AccountAdministersTheKey"],
       "arn:aws-us-gov:iam::123456789012:root"),
       contains([for s in jsondecode(aws_kms_key.us_east_1.policy).Statement : s.Principal.AWS if s.Sid == "DeployRoleAdministersTheKey"],
-      "arn:aws-us-gov:iam::123456789012:role/example-deploy-role"),
+      "arn:aws-us-gov:iam::123456789012:role/automation/example-deploy-role"),
     ])
     error_message = "The key policy must name the account root and the deploying role in the provider's partition."
   }
