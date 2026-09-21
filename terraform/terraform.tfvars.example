@@ -9,10 +9,10 @@ environment = "dev"
 # subscription SNS emails it before anything is delivered. A prod deployment requires at least one.
 alert_emails = ["REPLACE_ME@example.com"]
 
-# Create the CloudTrail trail the alerts depend on. Leave false in an account that already has a
-# trail: a second one bills every management event twice.
+# Optional; shown with their defaults. Create the CloudTrail trail the alerts depend on only in an
+# account that has no trail: a second one bills every management event twice.
 manage_trail = false
 
-# Role names whose security-group changes are not emailed, typically deploy pipelines that rewrite
-# security groups on every run. Their IAM changes still alert.
+# Role names whose security-group changes are not emailed, typically automation that rewrites
+# security groups on every run. Their IAM changes still alert. The default exempts nobody.
 exempt_pipeline_roles = []

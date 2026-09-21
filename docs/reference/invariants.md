@@ -5,9 +5,10 @@ Non-negotiable rules for this module. Violating one of these is a breaking chang
 - Terraform Core and provider versions MUST remain exact-pinned.
 - `terraform/.terraform.lock.hcl` MUST be committed with checksums for the supported
   contributor and CI platforms.
-- The supported region MUST remain exactly `us_east_1`; adding a region is a code change, not a
-  value change. IAM calls are recorded there as global service events, so the region is also
-  where the IAM alert has to live.
+- `terraform/providers.tf` MUST be the only file that names a region, and no expression may write
+  an ARN partition literally. Every ARN the framework writes itself MUST take its partition from
+  `data.aws_partition` and any region from `data.aws_region`, so one commit deploys to commercial
+  and GovCloud accounts by swapping that file alone. `tests/portability.tftest.hcl` enforces it.
 - Every alert MUST be an exact `eventName` list of write calls, asserted verbatim by test. A
   pattern that matches by prefix, or that matches read calls, is not an alert this module ships.
 - A principal exemption MUST apply to the security-group alert only, MUST never apply to IAM, and

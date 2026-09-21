@@ -12,10 +12,10 @@ reader knows what changed and who changed it before opening the console. Undeliv
 land in a dead-letter queue, and alarms report delivery failures to a separate health topic.
 When asked, the framework also creates the multi-region CloudTrail trail the alerts depend on.
 
-This repository is the framework, not a deployment. Deployments live in runner repositories that
-pin a commit of this framework and supply its values, as
-[aws-monitoring-terraform-runner](https://github.com/nwarila-platform/aws-monitoring-terraform-runner)
-does for the organization's account.
+This repository is the framework, not a deployment. A deployment pins a commit of it and supplies
+one value file per environment; nothing outside `terraform/providers.tf` names a region or an ARN
+partition, so the same commit deploys to a commercial or a GovCloud account by changing only that
+file. See the [runner protocol](docs/reference/runner-protocol.md).
 
 ## Quickstart
 

@@ -38,30 +38,31 @@ locals {
   dlq_name = "${local.alert_name}-dlq"
   dlq_tags = merge(local.identity_tags, { Name = local.dlq_name })
 
+  # The role deploying this framework, recovered from its assumed-role session ARN in whatever
+  # partition the provider targets. A caller that is not an assumed role is used as-is.
+  deploy_principal_arn = try(
+    format(
+      "arn:%s:iam::%s:role/%s",
+      data.aws_partition.current.partition,
+      data.aws_caller_identity.current.account_id,
+      regex("^arn:[^:]+:sts::[0-9]{12}:assumed-role/([^/]+)/", data.aws_caller_identity.current.arn)[0],
+    ),
+    data.aws_caller_identity.current.arn,
+  )
+
   # EventBridge publishes through the topic's key, so the key policy must admit it. The SNS
   # developer guide's statement for event sources is reproduced exactly: kms:GenerateDataKey* and
   # kms:Decrypt to events.amazonaws.com, with NO aws:SourceArn or aws:SourceAccount condition,
   # because that guide states those conditions are unsupported for EventBridge publishing to an
   # encrypted topic. The root statement keeps the key administrable by the account after the
   # runner's session ends; without it the key would be owned by nobody.
-  # The role deploying this framework, recovered from its assumed-role session ARN. A caller that
-  # is not an assumed role is used as-is.
-  deploy_principal_arn = try(
-    format(
-      "arn:aws:iam::%s:role/%s",
-      data.aws_caller_identity.current.account_id,
-      regex("^arn:aws:sts::[0-9]{12}:assumed-role/([^/]+)/", data.aws_caller_identity.current.arn)[0],
-    ),
-    data.aws_caller_identity.current.arn,
-  )
-
   alert_key_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Sid       = "AccountAdministersTheKey"
         Effect    = "Allow"
-        Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
+        Principal = { AWS = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root" }
         Action    = "kms:*"
         Resource  = "*"
       },
@@ -175,10 +176,13 @@ locals {
   # Composed rather than read from the resource: the bucket policy has to name the trail, and the
   # trail cannot be created until that policy exists.
   trail_arn = format(
-    "arn:aws:cloudtrail:us-east-1:%s:trail/%s",
+    "arn:%s:cloudtrail:%s:%s:trail/%s",
+    data.aws_partition.current.partition,
+    data.aws_region.current.region,
     data.aws_caller_identity.current.account_id,
     local.trail_name,
   )
+  trail_bucket_arn = "arn:${data.aws_partition.current.partition}:s3:::${local.trail_bucket}"
 
   # The policy CloudTrail requires to write, with the source condition AWS documents for it. The
   # object path is fixed by CloudTrail and includes the account id.
@@ -190,7 +194,7 @@ locals {
         Effect    = "Allow"
         Principal = { Service = "cloudtrail.amazonaws.com" }
         Action    = "s3:GetBucketAcl"
-        Resource  = "arn:aws:s3:::${local.trail_bucket}"
+        Resource  = local.trail_bucket_arn
         Condition = { StringEquals = { "aws:SourceArn" = local.trail_arn } }
       },
       {
@@ -198,7 +202,7 @@ locals {
         Effect    = "Allow"
         Principal = { Service = "cloudtrail.amazonaws.com" }
         Action    = "s3:PutObject"
-        Resource  = "arn:aws:s3:::${local.trail_bucket}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+        Resource  = "${local.trail_bucket_arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
         Condition = {
           StringEquals = {
             "s3:x-amz-acl"  = "bucket-owner-full-control"
@@ -228,8 +232,8 @@ locals {
       headline     = "Security group changed"
       source       = "aws.ec2"
       event_source = "ec2.amazonaws.com"
-      # Pipeline roles are exempt here and nowhere else: this estate's deploys rewrite security
-      # groups on every run, which is 28,000 events a month that no person reads.
+      # Pipeline roles are exempt here and nowhere else: automation that rewrites security groups
+      # on every run would bury the changes a person has to see.
       exempt_pipelines = true
       event_names = [
         "AssociateSecurityGroupVpc",

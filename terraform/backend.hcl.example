@@ -4,5 +4,5 @@
 # Only deployment-specific values belong here. `encrypt` and `use_lockfile` are set in
 # backend.tf because they are invariants for every deployment, not per-deployment choices.
 bucket = "REPLACE_ME-terraform"
-key    = "nwarila-platform/aws-monitoring-terraform-runner/terraform.tfstate"
+key    = "REPLACE_ME/aws-monitoring/terraform.tfstate"
 region = "us-east-1"
