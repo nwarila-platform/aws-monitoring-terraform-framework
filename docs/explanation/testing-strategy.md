@@ -19,6 +19,10 @@ behavior without making AWS API calls.
 - `tools/test_check_cloudtrail.sh` runs the trail gate's selector program against seven trail
   shapes, including the two that would otherwise pass while recording nothing the alerts need: a
   trail logging only read events, and one whose selectors exclude the alerted services.
+- `terraform/tests/portability.tftest.hcl` renders the configuration with a GovCloud partition
+  and region and fails if any policy the framework writes names the commercial partition. It also
+  plans with `manage_trail` and `exempt_pipeline_roles` omitted to prove their defaults create no
+  trail and exempt nobody.
 - `terraform/tests/tagging.tftest.hcl` verifies that provider `default_tags` carries exactly the
   six identity keys and that the key, the topic and each rule carry them plus their own `Name`.
 - `terraform/tests/validation.tftest.hcl` provides one negative run per validation rule:

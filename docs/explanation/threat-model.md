@@ -43,13 +43,13 @@ What this module guarantees:
 - **The key policy carries no source condition.** The SNS developer guide states that
   `aws:SourceArn` and `aws:SourceAccount` are unsupported for EventBridge publishing to an
   encrypted topic, so the key admits the service principal outright.
-- **The deploy pipelines are exempt from the security-group alert.** Thirty days of CloudTrail
-  showed 28,175 matching events in the deployment account, nearly all of them pipeline roles
-  rewriting security groups, which is roughly 940 emails a day per recipient and unreadable. The
-  roles in `exempt_pipeline_roles` therefore do not raise security-group alerts. Their IAM
-  changes still alert, every human change still alerts, and an event with no assumed-role
-  identity still alerts. The residual is a stolen pipeline credential used to change a security
-  group, which is visible in CloudTrail but not emailed.
+- **Named automation roles may be exempt from the security-group alert.** Automation that
+  rewrites security groups on every run can produce thousands of events a month, which buries the
+  changes a person needs to see. The roles in `exempt_pipeline_roles` therefore do not raise
+  security-group alerts. Their IAM changes still alert, every human change still alerts, and an
+  event with no assumed-role identity still alerts. The residual is a stolen credential for an
+  exempt role used to change a security group, which is visible in CloudTrail but not emailed. The
+  default exempts nobody.
 - **Only one region is watched.** Security-group events are recorded in the region of the call,
   so a group created outside the supported region raises no alert. This is only safe alongside an
   account control that prevents use of other regions; without that control it is an open gap

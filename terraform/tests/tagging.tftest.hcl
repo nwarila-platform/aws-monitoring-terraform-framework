@@ -1,6 +1,28 @@
 mock_provider "aws" {
   alias = "us_east_1"
 
+  # The commercial partition and region, so every ARN the framework writes renders the way a
+  # commercial deployment sees it. tests/portability.tftest.hcl renders the GovCloud case.
+  mock_data "aws_partition" {
+    defaults = {
+      partition  = "aws"
+      dns_suffix = "amazonaws.com"
+    }
+  }
+
+  mock_data "aws_region" {
+    defaults = {
+      region = "us-east-1"
+    }
+  }
+
+  # IAM's answer for the deploying session's role.
+  mock_data "aws_iam_session_context" {
+    defaults = {
+      issuer_arn = "arn:aws:iam::${join("", ["123456", "789012"])}:role/example-deploy-role"
+    }
+  }
+
   mock_data "aws_caller_identity" {
     defaults = {
       account_id = join("", ["123456", "789012"])
@@ -10,7 +32,7 @@ mock_provider "aws" {
 }
 
 variables {
-  repository            = "nwarila-platform/aws-monitoring-terraform-framework"
+  repository            = "example-org/aws-monitoring"
   repository_id         = "123456789"
   commit_sha            = "0123456789abcdef0123456789abcdef01234567"
   run_id                = "42"
@@ -30,7 +52,7 @@ run "identity_tags_carry_exactly_the_six_uniform_keys" {
       CommitSha    = "0123456789abcdef0123456789abcdef01234567"
       Environment  = "test"
       ManagedBy    = "Terraform"
-      Repository   = "nwarila-platform/aws-monitoring-terraform-framework"
+      Repository   = "example-org/aws-monitoring"
       RepositoryId = "123456789"
       RunId        = "42"
     }

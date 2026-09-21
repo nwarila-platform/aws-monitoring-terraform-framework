@@ -56,14 +56,13 @@ variable "alert_emails" {
 
 variable "exempt_pipeline_roles" {
   description = <<-EOT
-    IAM role names whose security-group changes are not emailed. This estate's deploy pipelines
-    rewrite security groups on every run, which measured 28,000 events in a month and drowns the
-    changes a person needs to see. The exemption is narrow by construction: it applies to the
-    security-group alert only, never to IAM, and an event carrying no assumed-role identity still
-    alerts. An empty list exempts nobody, which is the right setting for an account whose
-    deploys do not touch security groups.
+    IAM role names whose security-group changes are not emailed, for automation that rewrites
+    security groups on every run and would otherwise drown the changes a person needs to see. The
+    exemption is narrow by construction: it applies to the security-group alert only, never to
+    IAM, and an event carrying no assumed-role identity still alerts. The default exempts nobody.
   EOT
   type        = list(string)
+  default     = []
   nullable    = false
 
   validation {
@@ -83,23 +82,29 @@ variable "manage_trail" {
   description = <<-EOT
     Create the CloudTrail trail these alerts depend on. EventBridge receives no CloudTrail events
     at all unless a logging trail exists, so an account without one needs this set. It defaults
-    to nothing here and is turned on per deployment on purpose: AWS gives each account one free
-    copy of its management events, and an organization trail places a copy in every member
-    account, so creating a second trail bills every management event twice. The deploy proves
-    which case it is before it applies.
+    to false because creating a trail is the costly mistake: AWS gives each account one free copy
+    of its management events and bills every copy after it. Set it true only for an account with
+    no trail; tools/check_cloudtrail.sh tells the two cases apart.
   EOT
   type        = bool
+  default     = false
   nullable    = false
 }
 
 variable "repository" {
-  description = "GitHub owner/name slug of the deploying repository, stamped as the Repository tag."
+  description = <<-EOT
+    Path of the deploying repository, such as owner/name or group/subgroup/name, stamped as the
+    Repository tag.
+  EOT
   type        = string
   nullable    = false
 
   validation {
-    condition     = can(regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", var.repository))
-    error_message = "repository must be an owner/name slug (e.g. nwarila-platform/aws-monitoring-terraform-framework)."
+    condition = (
+      can(regex("^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+$", var.repository)) &&
+      alltrue([for segment in split("/", var.repository) : !contains([".", ".."], segment)])
+    )
+    error_message = "repository must be a path of two or more segments, such as owner/name or group/subgroup/name."
   }
 
   validation {
@@ -109,13 +114,16 @@ variable "repository" {
 }
 
 variable "repository_id" {
-  description = "Numeric, rename-stable GitHub repository id — the anchor of the deployment identity, stamped as the RepositoryId tag."
+  description = <<-EOT
+    Numeric, rename-stable id the source host gives the repository or project: the anchor of the
+    deployment identity, stamped as the RepositoryId tag.
+  EOT
   type        = string
   nullable    = false
 
   validation {
     condition     = can(regex("^[0-9]+$", var.repository_id))
-    error_message = "repository_id must be the numeric, rename-stable GitHub repository id."
+    error_message = "repository_id must be the numeric, rename-stable repository or project id."
   }
 
   validation {
@@ -125,23 +133,29 @@ variable "repository_id" {
 }
 
 variable "commit_sha" {
-  description = "Checked-out commit (git rev-parse HEAD after checkout, not github.sha), stamped as the CommitSha tag."
+  description = <<-EOT
+    Checked-out commit (git rev-parse HEAD after checkout, never a synthetic merge commit),
+    stamped as the CommitSha tag.
+  EOT
   type        = string
   nullable    = false
 
   validation {
     condition     = can(regex("^[0-9a-f]{40}$", var.commit_sha))
-    error_message = "commit_sha must be the lowercase 40-character checked-out commit SHA (git rev-parse HEAD after checkout, not github.sha)."
+    error_message = "commit_sha must be the lowercase 40-character checked-out commit SHA (git rev-parse HEAD after checkout)."
   }
 }
 
 variable "run_id" {
-  description = "Numeric GitHub Actions run id, stamped as the RunId tag. The run record holds actors, timestamps, and approvals; those stay in deployment evidence rather than in tags."
+  description = <<-EOT
+    Numeric id of the pipeline run or build, stamped as the RunId tag. The run record holds
+    actors, timestamps, and approvals; those stay in deployment evidence rather than in tags.
+  EOT
   type        = string
   nullable    = false
 
   validation {
     condition     = can(regex("^[0-9]+$", var.run_id))
-    error_message = "run_id must be the numeric GitHub Actions run id."
+    error_message = "run_id must be the numeric id of the pipeline run or build."
   }
 }

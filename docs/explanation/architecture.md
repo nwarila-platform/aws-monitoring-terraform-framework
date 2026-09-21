@@ -21,8 +21,10 @@ The module declares:
 ## How an alert reaches an inbox
 
 1. Someone calls a security group or IAM role write API. CloudTrail records the call. IAM is a
-   global service, so CloudTrail records its calls as occurring in `us-east-1`; security group
-   calls are recorded in the region they target, which for this fleet is the same region.
+   global service, so CloudTrail records its calls in the partition's global-service region:
+   `us-east-1` in the commercial partition, `us-gov-west-1` in GovCloud. Security group calls are
+   recorded in the region they target. The provider must therefore target the global-service
+   region, and the workloads must live there too; the IAM rule refuses any other region at plan.
 2. Because a logging trail exists, CloudTrail hands the record to the default EventBridge bus as
    an `AWS API Call via CloudTrail` event. Without a trail there is no event, which is why the
    deploying runner proves a trail before applying. A rule in the default `ENABLED` state matches

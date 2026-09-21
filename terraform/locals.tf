@@ -20,6 +20,18 @@ locals {
   #endregion --- [ Deployment Identity Tags ] -------------------------------------------------- #
 
 
+  #region ------ [ Global-Service Region ] ----------------------------------------------------- #
+
+  # CloudTrail records IAM calls in one region per partition and delivers them to EventBridge only
+  # there, so an IAM rule anywhere else is created successfully and never fires. A fact about AWS,
+  # not a choice: providers.tf still decides where a deployment goes, and this refuses the choices
+  # that would silence the IAM alert. A partition not listed here is refused outright, because its
+  # IAM region is unknown and a guess would be the silent failure this exists to prevent.
+  global_service_regions = { aws = "us-east-1", aws-us-gov = "us-gov-west-1" }
+
+  #endregion --- [ Global-Service Region ] ----------------------------------------------------- #
+
+
   #region ------ [ Alert Channel ] ------------------------------------------------------------- #
 
   # One topic, one key, and one name for both. Named for what it carries so the email sender,
@@ -38,30 +50,22 @@ locals {
   dlq_name = "${local.alert_name}-dlq"
   dlq_tags = merge(local.identity_tags, { Name = local.dlq_name })
 
+  # The role deploying this framework, path and partition included.
+  deploy_principal_arn = data.aws_iam_session_context.current.issuer_arn
+
   # EventBridge publishes through the topic's key, so the key policy must admit it. The SNS
   # developer guide's statement for event sources is reproduced exactly: kms:GenerateDataKey* and
   # kms:Decrypt to events.amazonaws.com, with NO aws:SourceArn or aws:SourceAccount condition,
   # because that guide states those conditions are unsupported for EventBridge publishing to an
   # encrypted topic. The root statement keeps the key administrable by the account after the
   # runner's session ends; without it the key would be owned by nobody.
-  # The role deploying this framework, recovered from its assumed-role session ARN. A caller that
-  # is not an assumed role is used as-is.
-  deploy_principal_arn = try(
-    format(
-      "arn:aws:iam::%s:role/%s",
-      data.aws_caller_identity.current.account_id,
-      regex("^arn:aws:sts::[0-9]{12}:assumed-role/([^/]+)/", data.aws_caller_identity.current.arn)[0],
-    ),
-    data.aws_caller_identity.current.arn,
-  )
-
   alert_key_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Sid       = "AccountAdministersTheKey"
         Effect    = "Allow"
-        Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
+        Principal = { AWS = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root" }
         Action    = "kms:*"
         Resource  = "*"
       },
@@ -175,10 +179,13 @@ locals {
   # Composed rather than read from the resource: the bucket policy has to name the trail, and the
   # trail cannot be created until that policy exists.
   trail_arn = format(
-    "arn:aws:cloudtrail:us-east-1:%s:trail/%s",
+    "arn:%s:cloudtrail:%s:%s:trail/%s",
+    data.aws_partition.current.partition,
+    data.aws_region.current.region,
     data.aws_caller_identity.current.account_id,
     local.trail_name,
   )
+  trail_bucket_arn = "arn:${data.aws_partition.current.partition}:s3:::${local.trail_bucket}"
 
   # The policy CloudTrail requires to write, with the source condition AWS documents for it. The
   # object path is fixed by CloudTrail and includes the account id.
@@ -190,7 +197,7 @@ locals {
         Effect    = "Allow"
         Principal = { Service = "cloudtrail.amazonaws.com" }
         Action    = "s3:GetBucketAcl"
-        Resource  = "arn:aws:s3:::${local.trail_bucket}"
+        Resource  = local.trail_bucket_arn
         Condition = { StringEquals = { "aws:SourceArn" = local.trail_arn } }
       },
       {
@@ -198,7 +205,7 @@ locals {
         Effect    = "Allow"
         Principal = { Service = "cloudtrail.amazonaws.com" }
         Action    = "s3:PutObject"
-        Resource  = "arn:aws:s3:::${local.trail_bucket}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+        Resource  = "${local.trail_bucket_arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
         Condition = {
           StringEquals = {
             "s3:x-amz-acl"  = "bucket-owner-full-control"
@@ -219,17 +226,18 @@ locals {
   # rule in the default ENABLED state matches write management events only, so widening a list
   # here is the whole act of widening the alert.
   #
-  # Every event named here is delivered in us-east-1: security group calls because the estate is
-  # confined to that region (see docs/reference/invariants.md), and IAM calls because CloudTrail
-  # records global-service events as occurring in US East (N. Virginia).
+  # Every event named here must arrive in the provider's region. Security group calls are recorded
+  # where they are made, so the deployment's workloads must live in that region (see
+  # docs/reference/invariants.md). IAM calls are recorded only in the partition's global-service
+  # region, so the provider must target that region too; the rules refuse any other.
   change_alerts = {
     security-group = {
       description  = "A security group, its rules, or its VPC associations were created, changed, or deleted."
       headline     = "Security group changed"
       source       = "aws.ec2"
       event_source = "ec2.amazonaws.com"
-      # Pipeline roles are exempt here and nowhere else: this estate's deploys rewrite security
-      # groups on every run, which is 28,000 events a month that no person reads.
+      # Pipeline roles are exempt here and nowhere else: automation that rewrites security groups
+      # on every run would bury the changes a person has to see.
       exempt_pipelines = true
       event_names = [
         "AssociateSecurityGroupVpc",
@@ -250,8 +258,7 @@ locals {
       headline     = "IAM permissions changed"
       source       = "aws.iam"
       event_source = "iam.amazonaws.com"
-      # Never exempt: an IAM change is the quietest way to widen access, whoever makes it, and the
-      # measured volume is a few dozen a month.
+      # Never exempt: an IAM change is the quietest way to widen access, whoever makes it.
       exempt_pipelines = false
       # The policy calls are here because a role's permissions change without any role-level
       # event: SetDefaultPolicyVersion on an attached managed policy re-grants every role that

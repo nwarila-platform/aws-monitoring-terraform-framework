@@ -233,6 +233,29 @@ resource "aws_cloudwatch_event_rule" "us_east_1" {
   state          = "ENABLED"
   tags           = merge(local.identity_tags, { Name = "${local.alert_name}-${each.key}" })
 
+  lifecycle {
+    precondition {
+      condition = (
+        each.value.source != "aws.iam" ||
+        lookup(local.global_service_regions, data.aws_partition.current.partition, "") == data.aws_region.current.region
+      )
+      error_message = (
+        contains(keys(local.global_service_regions), data.aws_partition.current.partition)
+        ? format(
+          "IAM events in partition %s are recorded only in %s, but the provider targets %s; the IAM alert would never fire. Point providers.tf at %s.",
+          data.aws_partition.current.partition,
+          local.global_service_regions[data.aws_partition.current.partition],
+          data.aws_region.current.region,
+          local.global_service_regions[data.aws_partition.current.partition],
+        )
+        : format(
+          "Partition %s is not supported: the region where it records IAM events is unknown, so the IAM alert might never fire. Add it to local.global_service_regions from AWS documentation.",
+          data.aws_partition.current.partition,
+        )
+      )
+    }
+  }
+
 }
 
 #endregion --- [ aws_cloudwatch_event_rule - us-east-1 ] --------------------------------------- #

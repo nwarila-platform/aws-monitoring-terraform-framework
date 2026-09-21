@@ -24,15 +24,51 @@ A runner supplies `environment`, `alert_emails`, `manage_trail`, and `exempt_pip
 its own value file, copied into the framework checkout or passed with `-var-file`. Start from
 `terraform/terraform.tfvars.example`.
 
+## One Value File per Environment
+
+Each environment is one account with its own value file and its own state. The framework commit is
+the same for all of them; what differs is:
+
+| Setting | Where it lives |
+| --- | --- |
+| `environment`, `alert_emails`, `manage_trail`, `exempt_pipeline_roles` | The environment's value file |
+| Backend bucket, key, and region | The environment's backend configuration |
+| Region and credentials | `terraform/providers.tf`, the only file that names a region |
+| `repository`, `repository_id`, `commit_sha`, `run_id` | The pipeline, as command-line `-var` |
+
+`manage_trail` and `exempt_pipeline_roles` have safe defaults: no trail is created and nobody is
+exempt. `environment` and `alert_emails` have none and must be set.
+
+## Terraform-Only Pipelines
+
+A pipeline that runs only `init`, `plan`, and `apply` skips the proof scripts in `tools/`, and
+the provider offers no data source that can read CloudTrail trails, so their checks cannot move
+into Terraform. What such a pipeline gives up, and what covers it:
+
+- **The event-pattern proof.** The patterns are framework code, identical in every environment;
+  a pipeline that runs `tools/check_event_patterns.sh` on every framework change proves them
+  before any terraform-only environment adopts that commit.
+- **The duplicate-trail guard.** Covered by the default: `manage_trail = false` never creates a
+  trail. Set it true only after confirming the account has none.
+- **The missing-trail guard.** Not covered by Terraform. Before the first apply in each account,
+  confirm a trail is logging write management events, including global service events:
+
+  ```sh
+  AWS_REGION=<region> tools/check_cloudtrail.sh
+  ```
+
+- **The post-apply read-back.** A failed create already fails `apply`, and the delivery-failure
+  alarms report a broken channel at runtime.
+
 ## Deployment Identity
 
 Every plan requires these four command-line variables. All are mandatory and non-nullable; there
 is no unattributed deployment:
 
-- `repository`: the runner repository as an `owner/name` slug.
-- `repository_id`: the numeric, rename-stable GitHub repository id.
+- `repository`: the deploying repository's path, such as `owner/name` or `group/subgroup/name`.
+- `repository_id`: the numeric, rename-stable id the source host gives the repository or project.
 - `commit_sha`: the lowercase SHA of the checked-out runner commit.
-- `run_id`: the numeric GitHub Actions run id, or another numeric run identifier for local use.
+- `run_id`: the numeric id of the pipeline run or build, or another numeric identifier for local use.
 
 Pass them as command-line `-var` arguments so they outrank every value file. The module writes
 them into the tag map of every taggable resource and also sets the six uniform keys as provider
@@ -54,6 +90,8 @@ A runner MUST, in this order:
 8. read the rules, targets, topics, subscriptions, and alarms back from AWS and fail on any
    mismatch.
 
-The deploy role needs, beyond the resources it manages, `events:TestEventPattern` and the
-CloudTrail read calls these scripts make: `ListTrails`, `DescribeTrails`, `GetTrailStatus`, and
+Every deploy role, in every environment, needs `iam:GetRole` on its own ARN: the framework asks IAM
+for the deploying role's real ARN, path included, to name it in the KMS key policy, and a plan fails
+without that permission. A pipeline that runs the proof scripts also needs `events:TestEventPattern`
+and the CloudTrail read calls they make: `ListTrails`, `DescribeTrails`, `GetTrailStatus`, and
 `GetEventSelectors`.

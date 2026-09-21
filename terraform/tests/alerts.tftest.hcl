@@ -3,6 +3,28 @@ mock_provider "aws" {
 
   # The key policy names the account root, so the identity lookup has to return an account-shaped
   # value rather than a random string.
+  # The commercial partition and region, so every ARN the framework writes renders the way a
+  # commercial deployment sees it. tests/portability.tftest.hcl renders the GovCloud case.
+  mock_data "aws_partition" {
+    defaults = {
+      partition  = "aws"
+      dns_suffix = "amazonaws.com"
+    }
+  }
+
+  mock_data "aws_region" {
+    defaults = {
+      region = "us-east-1"
+    }
+  }
+
+  # IAM's answer for the deploying session's role.
+  mock_data "aws_iam_session_context" {
+    defaults = {
+      issuer_arn = "arn:aws:iam::${join("", ["123456", "789012"])}:role/example-deploy-role"
+    }
+  }
+
   mock_data "aws_caller_identity" {
     defaults = {
       account_id = join("", ["123456", "789012"])
@@ -28,14 +50,14 @@ mock_provider "aws" {
 }
 
 variables {
-  repository            = "nwarila-platform/aws-monitoring-terraform-framework"
+  repository            = "example-org/aws-monitoring"
   repository_id         = "123456789"
   commit_sha            = "0123456789abcdef0123456789abcdef01234567"
   run_id                = "42"
   environment           = "test"
   manage_trail          = false
   alert_emails          = ["security@example.com", "oncall@example.com"]
-  exempt_pipeline_roles = ["nwarila-platform_pdq-deploy-inventory_runner"]
+  exempt_pipeline_roles = ["example-pipeline-role"]
 }
 
 # The rule IS the alert. Every write call that counts is named here, as an exact list, so a
@@ -127,7 +149,7 @@ run "the_pipeline_exemption_still_matches_an_identity_with_no_session" {
         userIdentity = {
           sessionContext = {
             sessionIssuer = {
-              userName = [{ "anything-but" = ["nwarila-platform_pdq-deploy-inventory_runner"] }]
+              userName = [{ "anything-but" = ["example-pipeline-role"] }]
             }
           }
         }
@@ -317,20 +339,24 @@ run "the_key_policy_names_the_role_that_deploys_it" {
   }
 }
 
-run "a_caller_that_is_not_an_assumed_role_is_named_as_itself" {
+# The deploying role is named as IAM reports it, so a role under a path keeps that path. Rebuilding
+# it from the session ARN, which carries no path, would name a role that does not exist.
+run "a_role_under_a_path_is_named_with_its_path" {
   command = plan
 
   override_data {
-    target = data.aws_caller_identity.current
+    target = data.aws_iam_session_context.current
     values = {
-      account_id = "123456789012"
-      arn        = "arn:aws:iam::123456789012:user/operator"
+      issuer_arn = "arn:aws:iam::123456789012:role/automation/pipelines/example-deploy-role"
     }
   }
 
   assert {
-    condition     = local.deploy_principal_arn == "arn:aws:iam::123456789012:user/operator"
-    error_message = "An IAM user or role ARN must pass through unchanged."
+    condition = contains(
+      [for s in jsondecode(aws_kms_key.us_east_1.policy).Statement : s.Principal.AWS if s.Sid == "DeployRoleAdministersTheKey"],
+      "arn:aws:iam::123456789012:role/automation/pipelines/example-deploy-role",
+    )
+    error_message = "The key policy must name the deploying role with its full path."
   }
 }
 

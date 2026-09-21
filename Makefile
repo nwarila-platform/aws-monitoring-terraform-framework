@@ -7,7 +7,7 @@ TFLINT ?= tflint
 # working-tree-only by construction, so excluding them cannot hide a deliverable.
 GUARD_EXCLUDE := ^(\.tmp/|\.themis/|terraform/\.terraform/|terraform/terraform\.tfstate(\.backup)?$$|terraform/\.terraform\.tfstate\.lock\.info$$|([^/]+/)*__pycache__/|([^/]+/)*[^/]+\.py[co]$$)
 
-.PHONY: fmt fmt-check init validate test trail-check docs docs-diff docs-check allowlist-check tflint ci
+.PHONY: fmt fmt-check init validate test trail-check portability-check docs docs-diff docs-check allowlist-check tflint ci
 
 # Mutating: rewrites HCL in place. Use locally before committing.
 # -recursive skips terraform.tfvars.example because fmt only walks .tf and .tfvars extensions,
@@ -41,6 +41,28 @@ test:
 # ones that matter, so its selector logic is proven offline against fixture trail shapes.
 trail-check:
 	bash tools/test_check_cloudtrail.sh
+
+# providers.tf is the only file that may say where a deployment goes, which is what lets one commit
+# deploy to a commercial or a GovCloud account by swapping that file alone. A partition written into
+# an ARN, or a region name, anywhere else ties every deployment to one environment. The partition
+# fact table in locals.tf is the single, named exception.
+portability-check:
+	@# Any ARN partition (aws, aws-us-gov, aws-cn, ...) or a bare partition or region string, in any
+	@# Terraform source under terraform/. Whole-line comments are skipped; a region named inside an
+	@# inline comment is flagged too, which errs on the loud side. The fact table is exempt only
+	@# for its own values.
+	@files=$$(find terraform -name '*.tf' -not -path '*/.terraform/*'); \
+	[ -n "$$files" ] || { echo "portability-check: no Terraform sources found"; exit 1; }; \
+	found=$$(grep -nHE 'arn:aws[a-z-]*:|"aws(-[a-z]+)+"|"[a-z]{2}(-gov|-iso[a-z]*)?-[a-z]+-[0-9]+"' $$files); \
+	status=$$?; [ "$$status" -le 1 ] || { echo "portability-check: grep failed ($$status)"; exit 1; }; \
+	found=$$(printf '%s\n' "$$found" | grep -v '^terraform/providers.tf:' \
+	  | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#' \
+	  | grep -vE '^terraform/locals.tf:[0-9]+:  global_service_regions = \{ aws = "us-east-1", aws-us-gov = "us-gov-west-1" \}$$' \
+	  | grep -v '^$$'); \
+	if [ -n "$$found" ]; then \
+	  printf 'ERROR: a region or partition is named outside providers.tf:\n%s\n' "$$found"; exit 1; \
+	fi; \
+	printf 'portability-check: OK — only providers.tf chooses a region, and no partition is written\n'
 
 # Mutating: regenerates the injected block in docs/reference/terraform.md.
 docs:
@@ -93,6 +115,7 @@ ci:
 	$(MAKE) validate
 	$(MAKE) test
 	$(MAKE) trail-check
+	$(MAKE) portability-check
 	$(MAKE) tflint
 	$(MAKE) docs-diff
 	$(MAKE) docs-check
