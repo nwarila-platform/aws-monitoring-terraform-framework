@@ -303,7 +303,9 @@ locals {
     "$or" = [
       {
         userIdentity = {
-          sessionContext = { sessionIssuer = { userName = [{ "anything-but" = var.exempt_pipeline_roles }] } }
+          # Wildcard matching, so one entry can cover a naming convention; an entry without `*` is
+          # matched exactly.
+          sessionContext = { sessionIssuer = { userName = [{ "anything-but" = { wildcard = var.exempt_pipeline_roles } }] } }
         }
       },
       {

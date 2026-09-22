@@ -46,7 +46,8 @@ while read -r rule; do
   fi
 
   exempt_role="$(printf '%s' "${pattern}" | jq -r '
-    .detail["$or"][0].userIdentity.sessionContext.sessionIssuer.userName[0]["anything-but"][0] // ""')"
+    .detail["$or"][0].userIdentity.sessionContext.sessionIssuer.userName[0]["anything-but"].wildcard[0] // ""
+    | gsub("\\*"; "example")')"
 
   for fixture in "${fixture_dir}"/*.json; do
     if grep -q EXEMPT_ROLE "${fixture}" && [ -z "${exempt_role}" ]; then

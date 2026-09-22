@@ -13,6 +13,8 @@ alert_emails = ["REPLACE_ME@example.com"]
 # account that has no trail: a second one bills every management event twice.
 manage_trail = false
 
-# Role names whose security-group changes are not emailed, typically automation that rewrites
-# security groups on every run. Their IAM changes still alert. The default exempts nobody.
+# Role names, or patterns using *, whose security-group changes are not emailed, typically
+# automation that rewrites security groups on every run. Prefer one pattern for a naming
+# convention, such as "example-org_*_runner", over a list of names that must track every new
+# pipeline. Their IAM changes still alert. The default exempts nobody.
 exempt_pipeline_roles = []
