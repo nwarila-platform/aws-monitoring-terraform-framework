@@ -3,10 +3,8 @@
 
 terraform {
 
-  # Declare minimum Terraform version.
   required_version = "= 1.15.1"
 
-  # Declare minimum AWS version.
   required_providers {
 
     aws = {

@@ -90,7 +90,7 @@ run "every_arn_the_framework_writes_takes_the_providers_partition_and_region" {
 
   assert {
     condition = alltrue([
-      for s in jsondecode(aws_s3_bucket_policy.us_east_1_trail[0].policy).Statement : alltrue([
+      for s in jsondecode(aws_s3_bucket_policy.us_east_1_trail["management-events"].policy).Statement : alltrue([
         s.Condition.StringEquals["aws:SourceArn"] == "arn:aws-us-gov:cloudtrail:us-gov-west-1:123456789012:trail/management-events",
         startswith(s.Resource, "arn:aws-us-gov:s3:::123456789012-cloudtrail"),
       ])
@@ -100,7 +100,7 @@ run "every_arn_the_framework_writes_takes_the_providers_partition_and_region" {
 
   assert {
     condition = alltrue([
-      for document in [aws_kms_key.us_east_1.policy, aws_s3_bucket_policy.us_east_1_trail[0].policy] :
+      for document in [aws_kms_key.us_east_1.policy, aws_s3_bucket_policy.us_east_1_trail["management-events"].policy] :
       !strcontains(document, "arn:aws:")
     ])
     error_message = "Neither the key policy nor the trail bucket policy may name the commercial partition."

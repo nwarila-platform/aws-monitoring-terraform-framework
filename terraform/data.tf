@@ -4,6 +4,8 @@
 
 #region ------ [ aws_caller_identity ] --------------------------------------------------------- #
 
+#region ------ [ aws_caller_identity.current - us-east-1 ] ------------------------------------- #
+
 data "aws_caller_identity" "current" {
 
   # The account the runner deploys into. The KMS key policy names its root principal, which is
@@ -12,10 +14,14 @@ data "aws_caller_identity" "current" {
 
 }
 
+#endregion --- [ aws_caller_identity.current - us-east-1 ] ------------------------------------- #
+
 #endregion --- [ aws_caller_identity ] --------------------------------------------------------- #
 
 
 #region ------ [ aws_iam_session_context ] ----------------------------------------------------- #
+
+#region ------ [ aws_iam_session_context.current - us-east-1 ] --------------------------------- #
 
 data "aws_iam_session_context" "current" {
 
@@ -28,10 +34,14 @@ data "aws_iam_session_context" "current" {
 
 }
 
+#endregion --- [ aws_iam_session_context.current - us-east-1 ] --------------------------------- #
+
 #endregion --- [ aws_iam_session_context ] ----------------------------------------------------- #
 
 
 #region ------ [ aws_partition ] --------------------------------------------------------------- #
+
+#region ------ [ aws_partition.current - us-east-1 ] ------------------------------------------- #
 
 data "aws_partition" "current" {
 
@@ -41,10 +51,14 @@ data "aws_partition" "current" {
 
 }
 
+#endregion --- [ aws_partition.current - us-east-1 ] ------------------------------------------- #
+
 #endregion --- [ aws_partition ] --------------------------------------------------------------- #
 
 
 #region ------ [ aws_region ] ------------------------------------------------------------------ #
+
+#region ------ [ aws_region.current - us-east-1 ] ---------------------------------------------- #
 
 data "aws_region" "current" {
 
@@ -52,5 +66,7 @@ data "aws_region" "current" {
   provider = aws.us_east_1
 
 }
+
+#endregion --- [ aws_region.current - us-east-1 ] ---------------------------------------------- #
 
 #endregion --- [ aws_region ] ------------------------------------------------------------------ #
