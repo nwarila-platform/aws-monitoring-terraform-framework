@@ -6,10 +6,8 @@ PRs to `main` must pass:
   layout, and the bidirectional deny-all `.gitignore` allowlist guard)
 - `Security` (the local `security.yaml` caller, which delegates to the namespace-local
   `nwarila-platform/.github` CodeQL, IaC/security, and Scorecard reusables per org ADR-0005)
-- `Template Sync` (`NWarila/drift-gate` against `NWarila/terraform-framework-template` current
-  `main` pin `ba73041b808ceae584f482e6bec2970c1bdc019b`). This repository has never been
-  reconciled against that baseline; its first run is expected to report the files this
-  repository deliberately shapes differently, and reconciling the pin is tracked as follow-up.
+- `Workflow containers` (`template-drift / run / check` for the pinned org and
+  `NWarila/terraform-framework-template` policies in `.github/.config/template-drift.lock`)
 - `Repo Hygiene` (`nwarila-platform/.github` repo-hygiene policy)
 
 Merging to `main` deploys nothing. A runner adopts a merged commit by updating its framework pin.

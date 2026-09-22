@@ -1,0 +1,12 @@
+name: Workflow containers
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  template-drift:
+    # renovate: datasource=git-refs depName=nwarila-platform/workflow-template-drift packageName=https://github.com/nwarila-platform/workflow-template-drift.git currentValue=main
+    uses: nwarila-platform/workflow-template-drift/.github/workflows/check.yaml@f621507b3eaa1d7e8afe89f42b75c653968d2a48 # v2.0.0
