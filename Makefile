@@ -50,7 +50,7 @@ trail-check:
 # The partition fact table in locals.tf is the single, named exception.
 portability-check:
 	@# An ARN in any partition (aws, aws-us-gov, aws-cn, ...), a quoted partition string such as
-	@# "aws-us-gov", or a region name anywhere in a line, quoted or embedded, in any Terraform source
+	@# "aws-us-gov", or a region name anywhere in a line, quoted or embedded, in every .tf file
 	@# under terraform/. A partition inside a longer string is not caught: this is a tripwire, and
 	@# the GovCloud test suite is what proves portability. Whole-line
 	@# comments are skipped; a region named in an inline comment is flagged too, which errs on the

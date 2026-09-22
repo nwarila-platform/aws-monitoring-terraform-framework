@@ -51,8 +51,9 @@ Non-negotiable rules for this module. Violating one of these is a breaking chang
   decide that from the saved plan and fail rather than add a billable second copy.
 - A trail this framework owns MUST be multi-region, MUST include global service events, MUST
   validate its log files, and MUST carry `prevent_destroy` along with its bucket.
-- A runner MUST prove a logging trail covers the region before applying, and MUST read the
-  rules, target, key and subscriptions back from AWS after applying. Proving the trail MUST
+- A runner MUST run the plan-aware trail check before applying, MUST prove a logging trail covers
+  the region after applying, and MUST read the rules, target, key and subscriptions back from AWS
+  after applying. Proving the trail MUST
   reject a trail that records only read events.
 - A `prod` deployment MUST name at least one recipient, and the deploy MUST fail when the live
   subscription count is short of the configured one.

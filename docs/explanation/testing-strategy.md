@@ -39,10 +39,11 @@ Nothing here proves an event reaches an inbox. `plan`, `validate` and `terraform
 Terraform's own graph and never see CloudTrail hand an event to EventBridge, EventBridge publish
 through the key, or SNS deliver. Two things stand in for that:
 
-- The deploying runner proves a logging trail exists before applying, tests every planned pattern
-  against EventBridge itself with the fixtures under `tools/fixtures/events/`, and reads every
-  rule, its target, the topic's key and the subscriptions back from AWS after applying.
-  Validity of the input template and real delivery are the two properties no mock can reach; the
-  template is covered by the JSON test plus the first real apply, delivery by the check below.
+- The deploying runner proves the trail state the plan needs before applying and coverage after
+  it, tests every planned pattern against EventBridge itself with the fixtures under
+  `tools/fixtures/events/`, and reads every rule, its target, the topic's key and the
+  subscriptions back from AWS after applying. Validity of the input template and real delivery are
+  the two properties no mock can reach; the template is covered by the JSON test plus the first
+  real apply, delivery by the check below.
 - The first apply is followed by a deliberate, harmless change to a security group so that a
   real email is seen. That check is in the runner's deploy guide.

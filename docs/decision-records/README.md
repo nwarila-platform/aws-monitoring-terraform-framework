@@ -36,7 +36,7 @@ into three scopes per [ADR-0001](org/0001-use-architecture-decision-records.md):
 | --- | --- | --- | --- | --- |
 | [repo/0001](repo/0001-alert-from-eventbridge-not-log-metric-filters.md) | Alert From EventBridge, Not Log Metric Filters | Accepted | 2026-09-15 | Match CloudTrail events in EventBridge and publish to an encrypted SNS topic; the deploy proves a logging trail covers the region, and repo/0003 decides whether the framework creates it. |
 | [repo/0002](repo/0002-alert-on-what-a-person-will-act-on.md) | Alert on What a Person Will Act On | Accepted | 2026-09-16 | Cover the calls that change authorisation, exempt deploy pipelines from the security-group alert only, send JSON, and prove every pattern against EventBridge. |
-| [repo/0003](repo/0003-own-the-trail-behind-a-switch.md) | Own the Trail, Behind a Switch | Accepted | 2026-09-16 | Create the multi-region trail the alerts depend on when `manage_trail` is set, and never create a second one in an account that already has coverage. |
+| [repo/0003](repo/0003-own-the-trail-behind-a-switch.md) | Own the Trail, Behind a Switch | Accepted | 2026-09-16 | Create the multi-region trail the alerts depend on when `manage_trail` is set, and never create a second one in an account that already has coverage when the deploy follows the runner protocol. |
 
 ## Authoring Rules
 

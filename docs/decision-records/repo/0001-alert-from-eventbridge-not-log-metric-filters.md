@@ -114,8 +114,8 @@ Until 2026-09-22 this section also read:
    rule is `ENABLED` on the `default` bus, that every rule publishes to the one encrypted topic,
    and that the key admits EventBridge.
 2. `tools/check_cloudtrail.sh` runs before the apply, where it fails when the plan creates no
-   trail and none covers the region, and again after it, where it fails without coverage, as the
-   runner protocol requires.
+   trail and none covers the region, or creates one and any trail already exists, and again after
+   it, where it fails without coverage, as the runner protocol requires.
 3. `docs/reference/invariants.md` states the exact-list, encryption and key-policy rules.
 
 ## Consequences

@@ -11,7 +11,7 @@
 | Last reviewed    | 2026-09-22                                                                  |
 | Authors          | Nick Warila (@NWarila)                                                      |
 | Decision-makers  | Nick Warila (sole portfolio maintainer)                                     |
-| Consulted        | Two independent audits of the first implementation.                         |
+| Consulted        | Independent audits.                                                         |
 | Informed         | Framework maintainers.                                                      |
 | Reversibility    | High                                                                        |
 | Review-by        | 2027-03-16                                                                  |
