@@ -83,8 +83,10 @@ A runner MUST, in this order:
 3. plan to a saved file with the four identity arguments;
 4. run `tools/check_cloudtrail.sh --plan <plan>`, which refuses to create a second trail and
    refuses to proceed with no trail;
-5. run `tools/check_event_patterns.sh <plan>`, which tests every planned pattern against
-   EventBridge with the fixtures under `tools/fixtures/events/`;
+5. run `tools/check_event_patterns.sh <plan> [role ...]`, which tests every planned pattern
+   against EventBridge with the fixtures under `tools/fixtures/events/`; a deployment that sets
+   `exempt_pipeline_roles` names at least one real role the exemption covers, and each named role
+   must prove exempt;
 6. apply the saved plan;
 7. run `tools/check_cloudtrail.sh` again, which now requires a covering trail outright; and
 8. read the rules, targets, topics, subscriptions, and alarms back from AWS and fail on any

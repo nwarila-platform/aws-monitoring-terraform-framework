@@ -8,13 +8,17 @@
 # named for the answer it must get, and a wrong answer fails the deploy before anything changes.
 #
 # Reads the saved plan rather than the deployed rules, so a broken pattern never reaches AWS.
-# Which roles are exempt is deployment data, so fixtures name the role EXEMPT_ROLE and it is
-# replaced with the first role the planned security-group pattern exempts. A deployment that
-# exempts nobody skips the fixtures that depend on an exemption. Needs events:TestEventPattern.
+# Which roles are exempt is deployment data: the caller names real roles the exemption must cover,
+# and each replaces EXEMPT_ROLE in the fixtures. They are never derived from the pattern, which
+# would let a misspelt pattern prove itself. A plan that exempts roles without a named role, or
+# names roles without exempting any, fails; one that exempts nobody skips the fixtures that depend
+# on an exemption. Needs events:TestEventPattern.
 
 set -euo pipefail
 
-plan_file="${1:?usage: check_event_patterns.sh <saved terraform plan file>}"
+plan_file="${1:?usage: check_event_patterns.sh <saved terraform plan file> [exempt role ...]}"
+shift
+exempt_roles=("$@")
 region="${AWS_REGION:?AWS_REGION must name the region the rules deploy into}"
 tools_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 terraform_dir="$(dirname "${plan_file}")"
@@ -45,40 +49,54 @@ while read -r rule; do
     continue
   fi
 
-  exempt_role="$(printf '%s' "${pattern}" | jq -r '
-    .detail["$or"][0].userIdentity.sessionContext.sessionIssuer.userName[0]["anything-but"].wildcard[0] // ""
-    | gsub("\\*"; "example")')"
+  exempting="$(printf '%s' "${pattern}" | jq '.detail | has("$or")')"
+  if [ "${key}" = "security-group" ] && [ "${exempting}" = "true" ] && [ "${#exempt_roles[@]}" -eq 0 ]; then
+    echo "::error::${name} exempts roles, but no role it must exempt was named; pass at least one." >&2
+    failed=1
+    continue
+  fi
+  if [ "${key}" = "security-group" ] && [ "${exempting}" = "false" ] && [ "${#exempt_roles[@]}" -gt 0 ]; then
+    echo "::error::Roles to exempt were named, but ${name} exempts nobody." >&2
+    failed=1
+    continue
+  fi
 
   for fixture in "${fixture_dir}"/*.json; do
-    if grep -q EXEMPT_ROLE "${fixture}" && [ -z "${exempt_role}" ]; then
-      if [ "${key}" = "security-group" ]; then
-        printf 'skip %-28s %-42s no role is exempt in this deployment\n' "${name}" "$(basename "${fixture}")"
-        continue
-      fi
-      # The IAM fixture proves a pipeline role is NOT exempt from IAM; any role name proves that.
-      exempt_role="example-pipeline-role"
-    fi
-
     case "$(basename "${fixture}")" in
       match-*) expected=true ;;
       nomatch-*) expected=false ;;
       *) echo "::error::${fixture} must be named match-*.json or nomatch-*.json." >&2; failed=1; continue ;;
     esac
 
-    actual="$(aws events test-event-pattern --region "${region}" \
-      --event-pattern "${pattern}" \
-      --event "$(sed "s/EXEMPT_ROLE/${exempt_role}/g" "${fixture}")" \
-      --query Result --output text)"
-    actual="$(printf '%s' "${actual}" | tr '[:upper:]' '[:lower:]')"
-    checked=$((checked + 1))
-
-    if [ "${actual}" != "${expected}" ]; then
-      printf '::error::%s against %s: expected %s, EventBridge said %s\n' \
-        "${name}" "$(basename "${fixture}")" "${expected}" "${actual}" >&2
-      failed=1
-    else
-      printf 'ok   %-28s %-42s %s\n' "${name}" "$(basename "${fixture}")" "${actual}"
+    roles=("")
+    if grep -q EXEMPT_ROLE "${fixture}"; then
+      if [ "${#exempt_roles[@]}" -gt 0 ]; then
+        roles=("${exempt_roles[@]}")
+      elif [ "${key}" = "security-group" ]; then
+        printf 'skip %-28s %-42s no role is exempt in this deployment\n' "${name}" "$(basename "${fixture}")"
+        continue
+      else
+        # The IAM fixture proves a pipeline role is NOT exempt from IAM; any role name proves that.
+        roles=("example-pipeline-role")
+      fi
     fi
+
+    for role in "${roles[@]}"; do
+      actual="$(aws events test-event-pattern --region "${region}" \
+        --event-pattern "${pattern}" \
+        --event "$(sed "s/EXEMPT_ROLE/${role}/g" "${fixture}")" \
+        --query Result --output text)"
+      actual="$(printf '%s' "${actual}" | tr '[:upper:]' '[:lower:]')"
+      checked=$((checked + 1))
+
+      if [ "${actual}" != "${expected}" ]; then
+        printf '::error::%s against %s %s: expected %s, EventBridge said %s\n' \
+          "${name}" "$(basename "${fixture}")" "${role}" "${expected}" "${actual}" >&2
+        failed=1
+      else
+        printf 'ok   %-28s %-42s %s%s\n' "${name}" "$(basename "${fixture}")" "${actual}" "${role:+ ${role}}"
+      fi
+    done
   done
 done < <(printf '%s' "${planned}" | jq -c '.[]')
 
@@ -87,4 +105,4 @@ if [ "${failed}" -ne 0 ]; then
   exit 1
 fi
 
-printf 'check_event_patterns: OK — %d fixtures matched as required\n' "${checked}"
+printf 'check_event_patterns: OK — %d checks matched as required\n' "${checked}"
