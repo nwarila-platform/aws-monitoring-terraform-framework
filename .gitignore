@@ -30,7 +30,7 @@
 !/.github/workflows/repo-hygiene.yaml
 !/.github/workflows/release-please.yaml
 !/.github/workflows/security.yaml
-!/.github/workflows/template-sync.yaml
+!/.github/workflows/workflow-containers.yaml
 
 # Editor configuration
 !/.vscode/
