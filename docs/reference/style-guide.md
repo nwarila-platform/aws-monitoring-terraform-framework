@@ -12,7 +12,7 @@ Canonical filenames only, no numeric prefixes:
 | --- | --- |
 | `versions.tf` | `terraform { required_version, required_providers }` with exact `=` pins |
 | `backend.tf` | the partial S3 backend; bucket identities never in-repo |
-| `providers.tf` | the provider, its region, and its `default_tags`: the only file that names a region |
+| `providers.tf` | the provider, its region, and its `default_tags`: the only file that chooses a region |
 | `variables.tf` | every `variable` block |
 | `data.tf` | every `data` block |
 | `locals.tf` | every `locals` block: the "brain", where all shaping happens |
@@ -49,9 +49,9 @@ Tests live in `terraform/tests/*.tftest.hcl`, named by subject.
 ## Comments
 
 - `#` only; no `//` and no banner boxes.
-- `#region ------ [ Title ] ---- #` and matching `#endregion` markers group every Terraform file;
-  titles name the AWS object family or the variables' purpose. `.vscode/settings.json` folds on
-  them.
+- `#region ------ [ Title ] ---- #` and matching `#endregion` markers group `variables.tf`,
+  `data.tf`, `locals.tf`, `resources.tf` and `outputs.tf`; titles name the AWS object family or
+  the group's purpose. `.vscode/settings.json` folds on them.
 - A comment states a constraint the code cannot show (why a value is forced, what breaks without
   it), never what the next line does.
 

@@ -214,4 +214,4 @@ keeps the exempt events.
 | 2026-09-16 | Accepted.                                                  | Settle coverage, exemption, message format and region.   | Portfolio maintainer | Yes        |
 | 2026-09-21 | Exemption changed from an exact role list to exact names or `*` patterns (PR #4); prior text kept under Previous decisions. | An exact list silently falls behind a growing fleet of pipelines. | Portfolio maintainer | Yes |
 | 2026-09-22 | Added the sign-in-role guard and the real-role proof (PR #5). | A pattern could reach sign-in roles, and a pattern proven against itself proved nothing. | Portfolio maintainer | Yes |
-| 2026-09-22 | Restructured to the org ADR schema; removed one deployment's measurements from the context. | Bring the record to the required schema and keep it environment-neutral. | Portfolio maintainer | Yes |
+| 2026-09-22 | Restructured to the org ADR schema; removed one deployment's measurements from the context; the region decision now speaks of a deployment's account rather than the estate, with its substance unchanged. | Bring the record to the required schema and keep it environment-neutral. | Portfolio maintainer | Yes |

@@ -53,7 +53,7 @@ Non-negotiable rules for this module. Violating one of these is a breaking chang
   validate its log files, and MUST carry `prevent_destroy` along with its bucket.
 - A runner MUST prove a logging trail covers the region before applying, and MUST read the
   rules, target, key and subscriptions back from AWS after applying. Proving the trail MUST
-  reject a trail that records only read events and one that filters out either alerted service.
+  reject a trail that records only read events.
 - A `prod` deployment MUST name at least one recipient, and the deploy MUST fail when the live
   subscription count is short of the configured one.
 - Resource keys used in outputs (`iam`, `security-group`, recipient addresses) MUST remain

@@ -100,8 +100,9 @@ in."
    is closed and expires its logs, the bucket policy admits only this trail, and no trail is
    created when `manage_trail` is false.
 2. `terraform/tests/portability.tftest.hcl` asserts omitted values fall to the safe defaults.
-3. `tools/check_cloudtrail.sh --plan` runs before the apply and again, without `--plan`, after
-   it, as the runner protocol requires; `tools/test_check_cloudtrail.sh` covers its decisions.
+3. `tools/check_cloudtrail.sh --plan` runs before the apply and again, without `--plan`, after it,
+   as the runner protocol requires; `tools/test_check_cloudtrail.sh` covers its selector
+   decisions.
 
 ## Consequences
 

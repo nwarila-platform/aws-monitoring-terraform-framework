@@ -81,7 +81,7 @@ them.
 A runner MUST, in this order:
 
 1. check out a reviewed framework commit and its own values;
-2. assume its deploy role over OIDC and initialise the backend;
+2. obtain its deploy role's credentials and initialise the backend;
 3. plan to a saved file with the four identity arguments;
 4. run `tools/check_cloudtrail.sh --plan <plan>`, which refuses to create a second trail and
    refuses to proceed with no trail;
