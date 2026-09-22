@@ -76,12 +76,14 @@ variable "exempt_pipeline_roles" {
   }
 
   # A pattern that starts with a wildcard can match any role, and AWSReservedSSO_ names the roles
-  # people sign in through; either would silence changes made by people. EventBridge rejects
+  # people sign in through. The text before the first wildcard is checked both ways, because
+  # A*DeveloperAccess* reaches those roles as surely as AWSReservedSSO_* does. EventBridge rejects
   # consecutive wildcards.
   validation {
     condition = alltrue([
-      for role in var.exempt_pipeline_roles :
-      !startswith(role, "*") && !startswith(role, "AWSReservedSSO_") && !strcontains(role, "**")
+      for role in var.exempt_pipeline_roles : !startswith(role, "*") && !strcontains(role, "**") && !(
+        startswith("AWSReservedSSO_", split("*", role)[0]) || startswith(split("*", role)[0], "AWSReservedSSO_")
+      )
     ])
     error_message = "exempt_pipeline_roles entries must begin with a literal name that is not AWSReservedSSO_, and must not contain **: the exemption is for pipelines, never for people."
   }

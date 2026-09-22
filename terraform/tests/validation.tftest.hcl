@@ -301,6 +301,16 @@ run "rejects_an_exempt_pattern_covering_sign_in_roles" {
   expect_failures = [var.exempt_pipeline_roles]
 }
 
+run "rejects_an_exempt_pattern_that_reaches_sign_in_roles_early" {
+  command = plan
+
+  variables {
+    exempt_pipeline_roles = ["A*DeveloperAccess*"]
+  }
+
+  expect_failures = [var.exempt_pipeline_roles]
+}
+
 run "rejects_consecutive_wildcards" {
   command = plan
 

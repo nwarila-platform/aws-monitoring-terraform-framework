@@ -51,7 +51,7 @@ while read -r rule; do
 
   exempting="$(printf '%s' "${pattern}" | jq '.detail | has("$or")')"
   if [ "${key}" = "security-group" ] && [ "${exempting}" = "true" ] && [ "${#exempt_roles[@]}" -eq 0 ]; then
-    echo "::error::${name} exempts roles, but no role it must exempt was named; pass one per pattern." >&2
+    echo "::error::${name} exempts roles, but no role it must exempt was named; pass at least one." >&2
     failed=1
     continue
   fi
@@ -94,7 +94,7 @@ while read -r rule; do
           "${name}" "$(basename "${fixture}")" "${role}" "${expected}" "${actual}" >&2
         failed=1
       else
-        printf 'ok   %-28s %-42s %s %s\n' "${name}" "$(basename "${fixture}")" "${actual}" "${role}"
+        printf 'ok   %-28s %-42s %s%s\n' "${name}" "$(basename "${fixture}")" "${actual}" "${role:+ ${role}}"
       fi
     done
   done
@@ -105,4 +105,4 @@ if [ "${failed}" -ne 0 ]; then
   exit 1
 fi
 
-printf 'check_event_patterns: OK — %d fixtures matched as required\n' "${checked}"
+printf 'check_event_patterns: OK — %d checks matched as required\n' "${checked}"

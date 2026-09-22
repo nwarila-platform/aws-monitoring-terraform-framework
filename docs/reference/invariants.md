@@ -16,10 +16,11 @@ Non-negotiable rules for this module. Violating one of these is a breaking chang
 - A principal exemption MUST apply to the security-group alert only, MUST never apply to IAM, and
   MUST keep matching events that carry no assumed-role identity. Excluding a nested field alone
   drops every event lacking that field, which would silently lose root-user and service-made
-  changes along with the pipelines. An exemption entry MAY be a wildcard pattern; it MUST begin with a
-  literal name and MUST NOT begin with `AWSReservedSSO_`, because a leading wildcard can match any
-  role and that prefix names the roles people sign in through. A deployment that exempts anyone
-  MUST name at least one real role the exemption covers, and the deploy MUST prove it is exempt.
+  changes along with the pipelines. An exemption entry MAY be a wildcard pattern; it MUST begin
+  with a literal name that neither begins with nor leads into `AWSReservedSSO_`, because a leading
+  wildcard can match any role and that prefix names the roles people sign in through. A deployment
+  that exempts anyone MUST name at least one real role the exemption covers, and the deploy MUST
+  prove it is exempt.
 - Every rule's pattern MUST be proven against EventBridge with fixtures before an apply; a new
   alert MUST ship with its own fixtures under `tools/fixtures/events/<key>/`.
 - The target input template MUST be valid JSON, and the whole event MUST travel as a JSON value.
