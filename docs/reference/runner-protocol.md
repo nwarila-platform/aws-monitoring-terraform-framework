@@ -103,8 +103,8 @@ fails without that permission. A pipeline that runs the proof scripts also needs
 ## Deploy Role Permissions
 
 The deploy role needs the calls below and nothing else; this is the complete set a deployment has
-been proven with. Every resource the module creates carries the deployment's `RepositoryId` tag in
-the create request, so create and manage grants can be conditioned on
+been proven with. Every taggable resource the module creates carries the deployment's
+`RepositoryId` tag in the create request, so create and manage grants can be conditioned on
 `aws:RequestTag/RepositoryId` and `aws:ResourceTag/RepositoryId`. Names are fixed, which lets
 every other grant name its resource: `security-change-alerts` and the names that begin with it,
 the trail `management-events`, and its bucket `<account-id>-cloudtrail`.
@@ -112,18 +112,22 @@ the trail `management-events`, and its bucket `<account-id>-cloudtrail`.
 | Service | Calls | Scope |
 | --- | --- | --- |
 | EventBridge | `PutRule`, `DeleteRule`, `DescribeRule`, `PutTargets`, `RemoveTargets`, `ListTargetsByRule`, `TagResource`, `UntagResource`, `ListTagsForResource` | rules named `security-change-alerts-*` |
-| SNS | `CreateTopic`, `DeleteTopic`, `GetTopicAttributes`, `SetTopicAttributes`, `ListSubscriptionsByTopic`, `Subscribe`, `Unsubscribe`, `GetSubscriptionAttributes`, `TagResource`, `UntagResource`, `ListTagsForResource` | the topics `security-change-alerts` and `security-change-alerts-health`; subscription calls are granted on the topic ARN |
+| SNS | `CreateTopic`, `DeleteTopic`, `GetTopicAttributes`, `SetTopicAttributes`, `Subscribe`, `Unsubscribe`, `GetSubscriptionAttributes`, `TagResource`, `UntagResource`, `ListTagsForResource`; `ListSubscriptionsByTopic` for a read-back that lists them | the topics `security-change-alerts` and `security-change-alerts-health`; subscription calls are granted on the topic ARN |
 | SQS | `CreateQueue`, `DeleteQueue`, `GetQueueUrl`, `GetQueueAttributes`, `SetQueueAttributes`, `TagQueue`, `UntagQueue`, `ListQueueTags` | the queue `security-change-alerts-dlq` |
 | KMS | `CreateKey`, `DescribeKey`, `GetKeyPolicy`, `PutKeyPolicy`, `GetKeyRotationStatus`, `EnableKeyRotation`, `DisableKeyRotation`, `UpdateKeyDescription`, `ListResourceTags`, `TagResource`, `UntagResource`, `ScheduleKeyDeletion`, `CancelKeyDeletion` | `CreateKey` on `*` conditioned on the request tag; the rest on keys carrying the tag |
 | KMS aliases | `CreateAlias`, `UpdateAlias`, `DeleteAlias` on the alias and the tagged key; `ListAliases` on `*` | `alias/security-change-alerts` |
 | CloudWatch | `PutMetricAlarm`, `DeleteAlarms`, `TagResource`, `UntagResource`, `ListTagsForResource`; `DescribeAlarms` on `*` | alarms named `security-change-alerts-*` |
 | IAM | `GetRole` | the deploy role itself |
 | S3, state | `GetObject`, `PutObject`, `DeleteObject`; `ListBucket` | the state object and its `.tflock`; the state prefix |
-| CloudTrail, only with `manage_trail = true` | `CreateTrail`, `AddTags`, `RemoveTags`, `ListTags`, `GetTrail`, `UpdateTrail`, `DeleteTrail`, `StartLogging`, `StopLogging`, `PutEventSelectors`, `GetInsightSelectors` | the trail `management-events` |
+| CloudTrail, only with `manage_trail = true` | `CreateTrail`, `AddTags`, `RemoveTags`, `ListTags`, `UpdateTrail`, `DeleteTrail`, `StartLogging`, `StopLogging`, `PutEventSelectors`, `GetTrailStatus`, `GetEventSelectors` on the trail; `DescribeTrails`, which takes no resource | the trail `management-events`; `DescribeTrails` on `*` |
 | S3, only with `manage_trail = true` | `CreateBucket`, `ListBucket`, `GetBucketLocation`, `GetBucketAcl`, `GetBucketCORS`, `GetBucketWebsite`, `GetBucketVersioning`, `GetAccelerateConfiguration`, `GetBucketRequestPayment`, `GetBucketLogging`, `GetLifecycleConfiguration`, `GetReplicationConfiguration`, `GetEncryptionConfiguration`, `GetBucketObjectLockConfiguration`, `GetBucketTagging`, `GetBucketOwnershipControls`, `GetBucketPublicAccessBlock`, `GetBucketPolicy`, `PutBucketTagging`, `PutBucketOwnershipControls`, `PutBucketPublicAccessBlock`, `PutEncryptionConfiguration`, `PutLifecycleConfiguration`, `PutBucketPolicy`, `DeleteBucketPolicy`, `TagResource`, `UntagResource`, `ListTagsForResource` | the bucket `<account-id>-cloudtrail` |
-| Proof scripts only | `events:TestEventPattern`; `cloudtrail:ListTrails`, `DescribeTrails`, `GetTrailStatus`, `GetEventSelectors` | `*` |
+| Proof scripts and any read-back | `events:TestEventPattern`; `cloudtrail:ListTrails`, `DescribeTrails`, `GetTrailStatus`, `GetEventSelectors` | `*` |
 
-Three details decide whether a first apply succeeds:
+The S3 tagging calls appear because the provider tries `TagResource`, `UntagResource` and
+`ListTagsForResource` first and falls back to the bucket-tagging calls only when they are denied;
+granting them keeps the bucket's first apply on the direct path.
+
+Four details decide whether a first apply succeeds:
 
 - **Tag on create.** Where a grant is conditioned on the resource tag, the tagging call
   (`TagResource`, `TagQueue`, `AddTags`) must also be granted under the request-tag condition,
@@ -131,6 +135,9 @@ Three details decide whether a first apply succeeds:
 - **The key policy names the deploy role.** KMS refuses to create a key whose policy would lock
   its creator out, so the module names the deploying role as an administrator of the key; that is
   why the role needs `iam:GetRole` on itself.
+- **Creating a trail reads it back.** Terraform finishes `CreateTrail` by reading the trail, which
+  calls `DescribeTrails` and `GetTrailStatus` every time. A role that can create a trail but not
+  read it leaves a created trail outside state and a failed apply.
 - **Listing the state bucket.** Condition `s3:ListBucket` on the state prefix with
   `StringLikeIfExists`, not `StringLike`. Before the first apply the state object does not exist,
   and S3 decides between "not found" and "access denied" with a `ListBucket` check that carries no

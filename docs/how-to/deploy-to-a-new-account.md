@@ -25,9 +25,10 @@ runs only `init`, `plan`, and `apply` cannot make these checks, so a person make
    - If it passes, a trail already carries the alerts: leave `manage_trail` unset.
    - If it fails and `aws cloudtrail list-trails` returns nothing, the account has no trail: set
      `manage_trail = true` and the framework creates one.
-   - If it fails and a trail exists, that trail records too little, for example only read
-     events. Fix its event selectors rather than adding a second trail, which bills every
-     management event twice.
+   - If it fails and a trail exists, the script's output names what that trail lacks: it is not
+     logging, does not cover this region, omits global service events, or records read events
+     only. Fix that trail rather than adding a second one, which bills every management event
+     twice.
 5. **Write the value file.** Set `environment` and at least one address in `alert_emails`. Leave
    `exempt_pipeline_roles` unset, so every change alerts.
 
@@ -42,10 +43,13 @@ runs only `init`, `plan`, and `apply` cannot make these checks, so a person make
      "Subscriptions[?contains(TopicArn, ':security-change-alerts') && SubscriptionArn=='PendingConfirmation']"
    ```
 
-2. **Prove delivery.** As a person, not the pipeline, create a security group in the provider's
-   region and delete it. Within a few minutes each recipient receives a message headed
-   `Security group changed`. If none arrives, the rule's `FailedInvocations` metric and the queue
-   `security-change-alerts-dlq` say where it stopped.
+2. **Prove delivery, for both alerts.** As a person, not the pipeline, create a security group in
+   the provider's region and delete it, then tag and untag a scratch IAM role. Within a few
+   minutes each recipient receives one message whose body begins `"alert": "Security group
+   changed"` and another beginning `"alert": "IAM permissions changed"`. The second proves the
+   IAM rule, whose events reach only the partition's global-service region. If either is missing,
+   the rule's `FailedInvocations` metric and the queue `security-change-alerts-dlq` say where it
+   stopped.
 3. **Close the other regions.** A security-group change in any other region raises no alert.
    Deny resource creation outside the provider's region with an account control, as the
    [invariants](../reference/invariants.md) require, or record the gap as accepted.
