@@ -27,8 +27,10 @@ runs only `init`, `plan`, and `apply` cannot make these checks, so a person make
      has no trail: set `manage_trail = true` and the framework creates one.
    - If it fails and a trail exists, that trail is missing something the alerts need: it may be
      stopped, cover another region only, omit global service events, or record read events only.
-     The script names the first two cases; inspect the trail for the others. Fix that trail rather
-     than adding a second one, which is billed for every management event both copies record.
+     The script names a stopped trail and one that records reads only; it drops the other two
+     silently, so read `aws cloudtrail describe-trails --region <region>` for those. Fix that
+     trail rather than adding a second one, which is billed for every management event both copies
+     record.
 5. **Write the value file.** Set `environment` and at least one address in `alert_emails`. Leave
    `exempt_pipeline_roles` unset, so every change alerts.
 
@@ -40,7 +42,8 @@ runs only `init`, `plan`, and `apply` cannot make these checks, so a person make
    still pending, using the deploy role's own read of each topic:
 
    ```sh
-   for arn in "$(terraform output -raw alert_topic_arn)" "$(terraform output -raw health_topic_arn)"; do
+   for arn in "$(terraform -chdir=terraform output -raw alert_topic_arn)" \
+              "$(terraform -chdir=terraform output -raw health_topic_arn)"; do
      aws sns list-subscriptions-by-topic --region <region> --topic-arn "${arn}" \
        --query "Subscriptions[?SubscriptionArn=='PendingConfirmation'].Endpoint"
    done
