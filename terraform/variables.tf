@@ -85,7 +85,7 @@ variable "exempt_pipeline_roles" {
         startswith("AWSReservedSSO_", split("*", role)[0]) || startswith(split("*", role)[0], "AWSReservedSSO_")
       )
     ])
-    error_message = "exempt_pipeline_roles entries must begin with a literal name that is not AWSReservedSSO_, and must not contain **: the exemption is for pipelines, never for people."
+    error_message = "exempt_pipeline_roles entries must begin with a literal name, the text before any * must neither begin with AWSReservedSSO_ nor be the start of it, and ** is not allowed: the exemption is for pipelines, never for people."
   }
 
   validation {
