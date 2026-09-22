@@ -66,9 +66,9 @@ EventBridge retries a failed publish and then drops the event for good, so a bro
 a deleted topic would lose security changes with nothing said. Three things prevent that. The
 target falls back to a dead-letter queue that holds an undelivered alert for fourteen days. The
 retry window is one hour rather than the default day, because an alert that arrives tomorrow has
-already failed. Four alarms watch the three ways delivery breaks, one per rule for the first: EventBridge failing to deliver
-to the topic, an alert sitting in the queue, and SNS accepting a publish and then failing to
-reach a recipient.
+already failed. Four alarms watch the three ways delivery breaks, one per rule for the first:
+EventBridge failing to deliver to the topic, an alert sitting in the queue, and SNS accepting a
+publish and then failing to reach a recipient.
 
 The alarms report to a second topic carrying the same recipients. That separation is the point:
 an alarm about a broken alert topic cannot be delivered through that topic. Each of those metrics

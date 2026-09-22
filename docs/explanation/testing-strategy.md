@@ -16,9 +16,10 @@ behavior without making AWS API calls.
   target with a one-hour retry window, that its policy names only this framework's rules, that
   all four alarms report to the health topic and treat missing data as healthy, and that the
   health topic is a second encrypted topic carrying the same recipients.
-- `tools/test_check_cloudtrail.sh` runs the trail gate's selector program against seven trail
-  shapes, including the two that would otherwise pass while recording nothing the alerts need: a
-  trail logging only read events, and one whose selectors exclude the alerted services.
+- `tools/test_check_cloudtrail.sh` runs the trail gate's selector program against six trail
+  shapes, including the two that exist and log yet record nothing the alerts need: a basic and an
+  advanced trail that each select read-only events. A trail that excludes only KMS events still
+  carries the alerts and is accepted.
 - `terraform/tests/portability.tftest.hcl` renders the configuration with a GovCloud partition
   and region and fails if any policy the framework writes names the commercial partition. It also
   plans with `manage_trail` and `exempt_pipeline_roles` omitted to prove their defaults create no
@@ -44,5 +45,4 @@ through the key, or SNS deliver. Two things stand in for that:
   Validity of the input template and real delivery are the two properties no mock can reach; the
   template is covered by the JSON test plus the first real apply, delivery by the check below.
 - The first apply is followed by a deliberate, harmless change to a security group so that a
-  real email is seen. That check is in
-  the runner's deploy guide.
+  real email is seen. That check is in the runner's deploy guide.

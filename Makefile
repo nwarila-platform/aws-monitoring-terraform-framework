@@ -3,15 +3,17 @@ TFLINT ?= tflint
 
 # The deny-all guard scans the whole repository. Only rooted, known runtime/scratch artifacts are
 # excluded: Terraform's local cache/state, Python bytecode caches, the `.tmp/` scratch directory
-# this org's repositories share, and `.themis/` tool state. These are
-# working-tree-only by construction, so excluding them cannot hide a deliverable.
+# this org's repositories share, and `.themis/` tool state. These are working-tree-only by
+# construction, so excluding them cannot hide a deliverable.
 GUARD_EXCLUDE := ^(\.tmp/|\.themis/|terraform/\.terraform/|terraform/terraform\.tfstate(\.backup)?$$|terraform/\.terraform\.tfstate\.lock\.info$$|([^/]+/)*__pycache__/|([^/]+/)*[^/]+\.py[co]$$)
 
-.PHONY: fmt fmt-check init validate test trail-check portability-check docs docs-diff docs-check allowlist-check tflint ci
+.PHONY: fmt fmt-check init validate test trail-check portability-check docs docs-diff docs-check \
+	allowlist-check tflint ci
 
 # Mutating: rewrites HCL in place. Use locally before committing.
 # -recursive skips terraform.tfvars.example because fmt only walks .tf and .tfvars extensions,
-# so the example is piped through stdin mode separately.
+# so the example is piped through stdin mode separately. Both targets must cover it or a
+# contributor could run fmt and still fail fmt-check.
 fmt:
 	terraform -chdir=terraform fmt -recursive
 	@formatted=$$(terraform fmt - < terraform/terraform.tfvars.example) && \
@@ -42,10 +44,10 @@ test:
 trail-check:
 	bash tools/test_check_cloudtrail.sh
 
-# providers.tf is the only file that may say where a deployment goes, which is what lets one commit
-# deploy to a commercial or a GovCloud account by swapping that file alone. A partition written into
-# an ARN, or a region name, anywhere else ties every deployment to one environment. The partition
-# fact table in locals.tf is the single, named exception.
+# providers.tf is the only file that may say where a deployment goes, which is what lets one
+# commit deploy to a commercial or a GovCloud account by swapping that file alone. A partition
+# written into an ARN, or a region name, anywhere else ties every deployment to one environment.
+# The partition fact table in locals.tf is the single, named exception.
 portability-check:
 	@# Any ARN partition (aws, aws-us-gov, aws-cn, ...), a bare partition string, or a region name
 	@# anywhere in a line, quoted or embedded, in any Terraform source under terraform/. Whole-line

@@ -28,8 +28,9 @@ Tests live in `terraform/tests/*.tftest.hcl`, named by subject.
 - `nullable = false` on every variable except those whose documented off switch is `null`.
 - `description` is a `<<-EOT` heredoc: the first sentence says what the variable is; the rest
   say how it is used, what validates it, and what happens when it is empty.
-- Every externally supplied scalar gets a `validation` block whose error message states the
-  exact accepted form.
+- Every externally supplied string or number gets a `validation` block whose error message
+  states the exact accepted form. A `bool` has no further form to check; its type is the whole
+  contract.
 
 ## Resources
 
@@ -48,8 +49,9 @@ Tests live in `terraform/tests/*.tftest.hcl`, named by subject.
 ## Comments
 
 - `#` only; no `//` and no banner boxes.
-- `#region ------ [ Title ] ---- #` and matching `#endregion` markers group `resources.tf` and
-  `locals.tf`; titles name the AWS object family. `.vscode/settings.json` folds on them.
+- `#region ------ [ Title ] ---- #` and matching `#endregion` markers group every Terraform file;
+  titles name the AWS object family or the variables' purpose. `.vscode/settings.json` folds on
+  them.
 - A comment states a constraint the code cannot show (why a value is forced, what breaks without
   it), never what the next line does.
 
@@ -72,5 +74,3 @@ code, and link URLs sit outside the rule.
 
 - Squash-merge titles are Conventional Commits; breaking changes use `!` and a
   `BREAKING CHANGE:` footer.
-- Nothing that reaches the repository names a tool, a vendor, or a process; describe the
-  engineering.
