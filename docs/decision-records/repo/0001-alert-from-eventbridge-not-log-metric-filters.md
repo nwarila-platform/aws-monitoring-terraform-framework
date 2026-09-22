@@ -68,8 +68,10 @@ Chosen option: **Option 1, EventBridge rules on CloudTrail events.**
   key cannot admit EventBridge and Security Hub expects encryption at rest. The key policy
   reproduces the SNS developer guide's statement for event sources verbatim, which carries no
   source condition because the guide states one is unsupported on this path.
-- Treat a logging trail as something the deploy proves before it touches state, so a missing
-  trail fails loudly with its cause named rather than applying a rule that never fires. Whether
+- Treat a logging trail as something the deploy proves, so a missing trail fails loudly with its
+  cause named rather than applying a rule that never fires. Before applying, the deploy proves
+  either that a covering trail exists or, when the plan creates one, that no trail does; after
+  applying, it proves coverage either way. Whether
   the framework also creates that trail is decided in
   [ADR-0003](0003-own-the-trail-behind-a-switch.md).
 - Which principals raise an email is decided in
@@ -111,8 +113,9 @@ Until 2026-09-22 this section also read:
 1. `terraform/tests/alerts.tftest.hcl` asserts each rule's exact `eventName` list, that every
    rule is `ENABLED` on the `default` bus, that every rule publishes to the one encrypted topic,
    and that the key admits EventBridge.
-2. `tools/check_cloudtrail.sh` runs before the apply and fails when no logging trail covers the
-   region, as the runner protocol requires.
+2. `tools/check_cloudtrail.sh` runs before the apply, where it fails when the plan creates no
+   trail and none covers the region, and again after it, where it fails without coverage, as the
+   runner protocol requires.
 3. `docs/reference/invariants.md` states the exact-list, encryption and key-policy rules.
 
 ## Consequences

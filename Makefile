@@ -49,8 +49,10 @@ trail-check:
 # written into an ARN, or a region name, anywhere else ties every deployment to one environment.
 # The partition fact table in locals.tf is the single, named exception.
 portability-check:
-	@# Any ARN partition (aws, aws-us-gov, aws-cn, ...), a bare partition string, or a region name
-	@# anywhere in a line, quoted or embedded, in any Terraform source under terraform/. Whole-line
+	@# An ARN in any partition (aws, aws-us-gov, aws-cn, ...), a quoted partition string such as
+	@# "aws-us-gov", or a region name anywhere in a line, quoted or embedded, in any Terraform source
+	@# under terraform/. A partition inside a longer string is not caught: this is a tripwire, and
+	@# the GovCloud test suite is what proves portability. Whole-line
 	@# comments are skipped; a region named in an inline comment is flagged too, which errs on the
 	@# loud side, as does a non-region string shaped like one. providers.tf is exempt: it is the one
 	@# file each environment replaces, so a region or an ARN in its partition belongs there. The fact

@@ -66,8 +66,8 @@ Chosen option: **Option 3.**
 - The deploy decides from the saved plan which check to run. If the plan creates a trail, no
   other covering trail may already exist. If it does not, a covering trail must already exist.
   After the apply, a covering trail must exist either way. A pipeline that runs only Terraform
-  cannot make these checks, and runs `tools/check_cloudtrail.sh` by hand before each account's
-  first apply.
+  cannot make these checks; an operator runs `tools/check_cloudtrail.sh` by hand before each
+  account's first apply.
 
 ### Previous decisions
 
@@ -89,7 +89,8 @@ in."
 
 ### Option 3: Create behind a switch, off by default, guarded
 
-- **Good, because** an account with no trail gets one, and a covered account pays nothing more.
+- **Good, because** an account with no trail gets one, and a covered account pays nothing more
+  when the deploy follows the runner protocol.
 - **Good, because** omitting the setting is the cheap case.
 - **Bad, because** the repository owns account-wide audit infrastructure when the switch is on.
 - **Bad, because** the duplicate-trail guard runs only in a pipeline that runs the proof scripts.
@@ -109,7 +110,8 @@ in."
 ### Positive
 
 - An account with no trail can deploy the alerts by setting one variable.
-- An account already covered by a trail is never billed for a second.
+- An account already covered by a trail is never billed for a second when the deploy follows the
+  runner protocol.
 
 ### Negative
 

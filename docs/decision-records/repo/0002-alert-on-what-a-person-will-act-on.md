@@ -27,8 +27,8 @@ an apply.
 
 ## Context and Problem Statement
 
-The first implementation was audited twice before it ever deployed, and the exemption was
-revisited once pipelines began to use it. Five things are settled here.
+Five things are settled here, including how the exemption keeps up with a growing fleet of
+pipelines.
 
 **Volume.** An account whose deploy pipelines rewrite security groups on every run produces far
 more matching events than a person can read, and an alert nobody reads is not a control.
