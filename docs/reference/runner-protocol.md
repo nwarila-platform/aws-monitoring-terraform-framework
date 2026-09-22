@@ -33,7 +33,7 @@ the same for all of them; what differs is:
 | --- | --- |
 | `environment`, `alert_emails`, `manage_trail`, `exempt_pipeline_roles` | The environment's value file |
 | Backend bucket, key, and region | The environment's backend configuration |
-| Region and credentials | `terraform/providers.tf`, the only file that names a region |
+| Region and credentials | `terraform/providers.tf`, the only file that chooses a region |
 | `repository`, `repository_id`, `commit_sha`, `run_id` | The pipeline, as command-line `-var` |
 
 `manage_trail` and `exempt_pipeline_roles` have safe defaults: no trail is created and nobody is
@@ -68,18 +68,20 @@ is no unattributed deployment:
 - `repository`: the deploying repository's path, such as `owner/name` or `group/subgroup/name`.
 - `repository_id`: the numeric, rename-stable id the source host gives the repository or project.
 - `commit_sha`: the lowercase SHA of the checked-out runner commit.
-- `run_id`: the numeric id of the pipeline run or build, or another numeric identifier for local use.
+- `run_id`: the numeric id of the pipeline run or build, or another numeric identifier for local
+  use.
 
 Pass them as command-line `-var` arguments so they outrank every value file. The module writes
 them into the tag map of every taggable resource and also sets the six uniform keys as provider
-`default_tags`, so they travel in the create request where a deploy role's tag conditions see them.
+`default_tags`, so they travel in the create request where a deploy role's tag conditions see
+them.
 
 ## Runner Responsibilities
 
 A runner MUST, in this order:
 
 1. check out a reviewed framework commit and its own values;
-2. assume its deploy role over OIDC and initialise the backend;
+2. obtain its deploy role's credentials and initialise the backend;
 3. plan to a saved file with the four identity arguments;
 4. run `tools/check_cloudtrail.sh --plan <plan>`, which refuses to create a second trail and
    refuses to proceed with no trail;
@@ -92,8 +94,8 @@ A runner MUST, in this order:
 8. read the rules, targets, topics, subscriptions, and alarms back from AWS and fail on any
    mismatch.
 
-Every deploy role, in every environment, needs `iam:GetRole` on its own ARN: the framework asks IAM
-for the deploying role's real ARN, path included, to name it in the KMS key policy, and a plan fails
-without that permission. A pipeline that runs the proof scripts also needs `events:TestEventPattern`
-and the CloudTrail read calls they make: `ListTrails`, `DescribeTrails`, `GetTrailStatus`, and
-`GetEventSelectors`.
+Every deploy role, in every environment, needs `iam:GetRole` on its own ARN: the framework asks
+IAM for the deploying role's real ARN, path included, to name it in the KMS key policy, and a plan
+fails without that permission. A pipeline that runs the proof scripts also needs
+`events:TestEventPattern` and the CloudTrail read calls they make: `ListTrails`, `DescribeTrails`,
+`GetTrailStatus`, and `GetEventSelectors`.

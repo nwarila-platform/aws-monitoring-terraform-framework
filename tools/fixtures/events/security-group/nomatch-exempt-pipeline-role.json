@@ -20,6 +20,6 @@
         }
       }
     },
-    "requestParameters": { "groupName": "pdq-eni-0-sg" }
+    "requestParameters": { "groupName": "example-eni-0-sg" }
   }
 }

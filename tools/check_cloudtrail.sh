@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # Decide whether this account's CloudTrail configuration can carry the alerts. EventBridge
-# receives "AWS API Call via CloudTrail" events only while a logging trail exists (EventBridge User
-# Guide, "AWS service events delivered via AWS CloudTrail"), so without one every rule this
+# receives "AWS API Call via CloudTrail" events only while a logging trail exists (EventBridge
+# User Guide, "AWS service events delivered via AWS CloudTrail"), so without one every rule this
 # framework deploys is green in Terraform and silent in practice.
 #
 #   check_cloudtrail.sh                 a trail must already log this region's write management
 #                                       events, global service events included. Runs after apply.
-#   check_cloudtrail.sh --plan <file>   if the saved plan CREATES a trail, the account must have no
-#                                       trail at all, in any region: AWS gives one free copy of
-#                                       management events per account and bills every copy after
-#                                       it. If the plan creates none, the default rule applies.
+#   check_cloudtrail.sh --plan <file>   if the saved plan CREATES a trail, the account must have
+#                                       no trail at all, in any region: AWS gives one free copy
+#                                       of management events per account and bills every copy
+#                                       after it. If the plan creates none, the default rule
+#                                       applies.
 #
 # Read-only: list-trails, describe-trails, get-trail-status, get-event-selectors.
 

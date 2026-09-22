@@ -3,15 +3,17 @@ TFLINT ?= tflint
 
 # The deny-all guard scans the whole repository. Only rooted, known runtime/scratch artifacts are
 # excluded: Terraform's local cache/state, Python bytecode caches, the `.tmp/` scratch directory
-# this org's repositories share, and `.themis/` tool state. These are
-# working-tree-only by construction, so excluding them cannot hide a deliverable.
+# this org's repositories share, and `.themis/` tool state. These are working-tree-only by
+# construction, so excluding them cannot hide a deliverable.
 GUARD_EXCLUDE := ^(\.tmp/|\.themis/|terraform/\.terraform/|terraform/terraform\.tfstate(\.backup)?$$|terraform/\.terraform\.tfstate\.lock\.info$$|([^/]+/)*__pycache__/|([^/]+/)*[^/]+\.py[co]$$)
 
-.PHONY: fmt fmt-check init validate test trail-check portability-check docs docs-diff docs-check allowlist-check tflint ci
+.PHONY: fmt fmt-check init validate test trail-check portability-check docs docs-diff docs-check \
+	allowlist-check tflint ci
 
 # Mutating: rewrites HCL in place. Use locally before committing.
 # -recursive skips terraform.tfvars.example because fmt only walks .tf and .tfvars extensions,
-# so the example is piped through stdin mode separately.
+# so the example is piped through stdin mode separately. Both targets must cover it or a
+# contributor could run fmt and still fail fmt-check.
 fmt:
 	terraform -chdir=terraform fmt -recursive
 	@formatted=$$(terraform fmt - < terraform/terraform.tfvars.example) && \
@@ -42,18 +44,22 @@ test:
 trail-check:
 	bash tools/test_check_cloudtrail.sh
 
-# providers.tf is the only file that may say where a deployment goes, which is what lets one commit
-# deploy to a commercial or a GovCloud account by swapping that file alone. A partition written into
-# an ARN, or a region name, anywhere else ties every deployment to one environment. The partition
-# fact table in locals.tf is the single, named exception.
+# providers.tf is the only file that may say where a deployment goes, which is what lets one
+# commit deploy to a commercial or a GovCloud account by swapping that file alone. A partition
+# written into an ARN, or a region name, anywhere else ties every deployment to one environment.
+# The partition fact table in locals.tf is the single, named exception.
 portability-check:
-	@# Any ARN partition (aws, aws-us-gov, aws-cn, ...) or a bare partition or region string, in any
-	@# Terraform source under terraform/. Whole-line comments are skipped; a region named inside an
-	@# inline comment is flagged too, which errs on the loud side. The fact table is exempt only
-	@# for its own values.
+	@# An ARN in any partition (aws, aws-us-gov, aws-cn, ...), a quoted partition string such as
+	@# "aws-us-gov", or a region name anywhere in a line, quoted or embedded, in every .tf file
+	@# under terraform/. A partition inside a longer string is not caught: this is a tripwire, and
+	@# the GovCloud test suite is what proves portability. Whole-line comments are skipped; a
+	@# region named in an inline comment is flagged too, which errs on the loud side, as does a
+	@# non-region string shaped like one. providers.tf is exempt: it is the one file each
+	@# environment replaces, so a region or an ARN in its partition belongs there. The fact table
+	@# is exempt only for its own exact line.
 	@files=$$(find terraform -name '*.tf' -not -path '*/.terraform/*'); \
 	[ -n "$$files" ] || { echo "portability-check: no Terraform sources found"; exit 1; }; \
-	found=$$(grep -nHE 'arn:aws[a-z-]*:|"aws(-[a-z]+)+"|"[a-z]{2}(-gov|-iso[a-z]*)?-[a-z]+-[0-9]+"' $$files); \
+	found=$$(grep -nHE 'arn:aws[a-z-]*:|"aws(-[a-z]+)*"|(^|[^[:alnum:]])[a-z]{2}(-gov|-iso[a-z]*)?-(north|south|east|west|central|northeast|northwest|southeast|southwest)-[0-9]+([^[:alnum:]]|$$)' $$files); \
 	status=$$?; [ "$$status" -le 1 ] || { echo "portability-check: grep failed ($$status)"; exit 1; }; \
 	found=$$(printf '%s\n' "$$found" | grep -v '^terraform/providers.tf:' \
 	  | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#' \

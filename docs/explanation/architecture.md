@@ -27,8 +27,9 @@ The module declares:
    region, and the workloads must live there too; the IAM rule refuses any other region at plan.
 2. Because a logging trail exists, CloudTrail hands the record to the default EventBridge bus as
    an `AWS API Call via CloudTrail` event. Without a trail there is no event, which is why the
-   deploying runner proves a trail before applying. A rule in the default `ENABLED` state matches
-   write management events, which is the whole category this framework alerts on.
+   deploying runner proves the trail state the plan needs before applying and coverage after it. A
+   rule in the default `ENABLED` state matches write management events, which is the whole
+   category this framework alerts on.
 3. The rule whose `eventName` list names the call matches. The security-group rule additionally
    excludes the deploy pipelines named in `exempt_pipeline_roles`, and that exclusion is written
    as two branches so that an event carrying no assumed-role identity still matches. Its target
@@ -66,9 +67,9 @@ EventBridge retries a failed publish and then drops the event for good, so a bro
 a deleted topic would lose security changes with nothing said. Three things prevent that. The
 target falls back to a dead-letter queue that holds an undelivered alert for fourteen days. The
 retry window is one hour rather than the default day, because an alert that arrives tomorrow has
-already failed. Four alarms watch the three ways delivery breaks, one per rule for the first: EventBridge failing to deliver
-to the topic, an alert sitting in the queue, and SNS accepting a publish and then failing to
-reach a recipient.
+already failed. Four alarms watch the three ways delivery breaks, one per rule for the first:
+EventBridge failing to deliver to the topic, an alert sitting in the queue, and SNS accepting a
+publish and then failing to reach a recipient.
 
 The alarms report to a second topic carrying the same recipients. That separation is the point:
 an alarm about a broken alert topic cannot be delivered through that topic. Each of those metrics

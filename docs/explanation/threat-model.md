@@ -19,13 +19,14 @@ What this module guarantees:
 
 ## Trust Boundaries
 
-- **Repository to CI runner.** GitHub Actions checks out this repository and runs `make ci` with
-  pinned tooling. The workflow token is read-only for validation.
+- **Repository to CI.** CI checks out this repository and runs `make ci` with pinned tooling;
+  `.github/workflows/ci.yaml` grants it read access to the repository and no cloud credentials.
 - **Terraform to AWS provider registry.** `terraform init` downloads `hashicorp/aws` and
   verifies the selected artifact against the committed lock file.
-- **Runner to the workload account.** Only a runner's deploy workflow, running on its `main`,
-  can assume the deploy role; the role's trust names the workflow file, the ref, and the
-  repository id. Its permissions are the exact ARNs this module creates.
+- **Runner to the workload account.** The deploy role's credentials belong to one pipeline, and
+  binding that trust to the pipeline and its protected branch is the runner's responsibility; this
+  module cannot see how the pipeline authenticates. Scoping the role's permissions to the
+  resources this module creates is the runner's responsibility too.
 - **CloudTrail to EventBridge.** The trail is created by this framework when `manage_trail` is
   set, and is otherwise owned outside it. Either way the runner proves one is logging write
   management events, because a rule with no trail behind it is silent and green.
@@ -43,15 +44,16 @@ What this module guarantees:
 - **The key policy carries no source condition.** The SNS developer guide states that
   `aws:SourceArn` and `aws:SourceAccount` are unsupported for EventBridge publishing to an
   encrypted topic, so the key admits the service principal outright.
-- **Named automation roles may be exempt from the security-group alert.** Automation that
-  rewrites security groups on every run can produce thousands of events a month, which buries the
+- **Named automation roles may be exempt from the security-group alert.** Automation that rewrites
+  security groups on every run produces far more events than a person can read, which buries the
   changes a person needs to see. The roles in `exempt_pipeline_roles`, named exactly or matched by
-  a `*` pattern, therefore do not raise security-group alerts. Their IAM changes still alert, every
-  human change still alerts, and an event with no assumed-role identity still alerts. A pattern
-  also exempts roles created later under the same name, which is the point: an exact list silently
-  fell behind a growing fleet and sent 104 emails in one scheduled run. Creating such a role still
-  raises the IAM alert. The residual is a stolen credential for an exempt role used to change a
-  security group, which is visible in CloudTrail but not emailed. The default exempts nobody.
+  a `*` pattern, therefore do not raise security-group alerts. Their IAM changes still alert, a
+  change made through an IAM Identity Center sign-in role still alerts because no entry may reach
+  those roles, and an event with no assumed-role identity still alerts. A pattern also exempts
+  roles created later under the same name, which is the point: an exact list silently falls behind
+  a growing fleet of pipelines. Creating such a role still raises the IAM alert. The residual is a
+  stolen credential for an exempt role used to change a security group, which is visible in
+  CloudTrail but not emailed. The default exempts nobody.
 - **Only one region is watched.** Security-group events are recorded in the region of the call,
   so a group created outside the supported region raises no alert. This is only safe alongside an
   account control that prevents use of other regions; without that control it is an open gap

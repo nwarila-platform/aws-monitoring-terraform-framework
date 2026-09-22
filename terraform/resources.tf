@@ -90,7 +90,7 @@ resource "aws_sns_topic_policy" "us_east_1" {
 
 resource "aws_sns_topic_subscription" "us_east_1" {
 
-  # Iterate through all Alert Recipients in the US-East-1 region.
+  # Iterate through all Alert Recipients in the provider's region.
   provider = aws.us_east_1
   for_each = local.alert_recipients
 
@@ -153,7 +153,7 @@ resource "aws_sns_topic_policy" "us_east_1_health" {
 
 resource "aws_sns_topic_subscription" "us_east_1_health" {
 
-  # Iterate through all Alert Recipients in the US-East-1 region. The people who receive the
+  # Iterate through all Alert Recipients in the provider's region. The people who receive the
   # alerts are the people who must hear that the alerts stopped.
   provider = aws.us_east_1
   for_each = local.alert_recipients
@@ -220,7 +220,7 @@ resource "aws_sqs_queue_policy" "us_east_1_dlq" {
 
 resource "aws_cloudwatch_event_rule" "us_east_1" {
 
-  # Iterate through all Change Alerts in the US-East-1 region.
+  # Iterate through all Change Alerts in the provider's region.
   provider = aws.us_east_1
   for_each = local.change_alerts
 
@@ -269,7 +269,7 @@ resource "aws_cloudwatch_event_rule" "us_east_1" {
 
 resource "aws_cloudwatch_event_target" "us_east_1" {
 
-  # Iterate through all Change Alerts in the US-East-1 region.
+  # Iterate through all Change Alerts in the provider's region.
   provider = aws.us_east_1
   for_each = local.change_alerts
 
@@ -309,7 +309,7 @@ resource "aws_cloudwatch_event_target" "us_east_1" {
 
 resource "aws_cloudwatch_metric_alarm" "us_east_1_failed_invocations" {
 
-  # Iterate through all Change Alerts in the US-East-1 region.
+  # Iterate through all Change Alerts in the provider's region.
   provider = aws.us_east_1
   for_each = local.change_alerts
 
@@ -572,7 +572,8 @@ resource "aws_cloudtrail" "us_east_1" {
 
   # Define the Management Event Trail Properties. Multi-region and global service events are both
   # required rather than preferred: a security group is recorded in the region of the call, and
-  # IAM is a global service whose events are recorded in US East (N. Virginia).
+  # IAM is a global service whose events are recorded only in the partition's global-service
+  # region.
   enable_log_file_validation    = true
   include_global_service_events = true
   is_multi_region_trail         = true
