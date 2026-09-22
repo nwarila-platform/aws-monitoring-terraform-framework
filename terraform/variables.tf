@@ -1,5 +1,5 @@
-# Variable declarations. Deployment environment and recipients first, then the deployment
-# identity the runner supplies on the command line.
+# Input variable declarations: the framework's entire consumer contract. Shaping belongs to
+# locals.tf, and the deployment identity arrives from the runner on the command line.
 
 #region ------ [ Framework Controls ] ---------------------------------------------------------- #
 

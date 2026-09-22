@@ -50,9 +50,9 @@ resource "aws_sns_topic" "us_east_1" {
 
   provider = aws.us_east_1
 
-  # Define the Alert Topic Properties
-  # The display name is the sender name recipients see. EventBridge sets no per-message subject,
-  # so every email arrives under SNS's fixed subject and the headline is the body's first line.
+  # Define the Alert Topic Properties. The display name is the sender name recipients see.
+  # EventBridge sets no per-message subject, so every email arrives under SNS's fixed subject and
+  # the headline is the body's first line.
   display_name      = "AWS security change alerts"
   kms_master_key_id = aws_kms_key.us_east_1.key_id
   name              = local.alert_name
@@ -178,9 +178,9 @@ resource "aws_sqs_queue" "us_east_1_dlq" {
 
   provider = aws.us_east_1
 
-  # Define the Dead-Letter Queue Properties
-  # Fourteen days is the SQS maximum and the point of the queue: an alert that could not be
-  # delivered is kept until somebody reads it, rather than dropped when retries run out.
+  # Define the Dead-Letter Queue Properties. Fourteen days is the SQS maximum and the point of
+  # the queue: an alert that could not be delivered is kept until somebody reads it, rather than
+  # dropped when retries run out.
   message_retention_seconds = 1209600
   name                      = local.dlq_name
   # SQS-managed encryption rather than the alert key: the queue holds the same event the email
@@ -516,15 +516,15 @@ resource "aws_s3_bucket_lifecycle_configuration" "us_east_1_trail" {
     id     = "expire-management-event-logs"
     status = "Enabled"
 
-    filter {}
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
 
     expiration {
       days = 365
     }
 
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 7
-    }
+    filter {}
   }
 
 }
