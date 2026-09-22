@@ -13,6 +13,7 @@ per
 
 ## How-to guides
 
+- [Deploy to a new account](how-to/deploy-to-a-new-account.md)
 - [Develop this module](how-to/develop-this-module.md)
 
 ## Explanation
