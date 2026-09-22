@@ -52,11 +52,11 @@ portability-check:
 	@# An ARN in any partition (aws, aws-us-gov, aws-cn, ...), a quoted partition string such as
 	@# "aws-us-gov", or a region name anywhere in a line, quoted or embedded, in every .tf file
 	@# under terraform/. A partition inside a longer string is not caught: this is a tripwire, and
-	@# the GovCloud test suite is what proves portability. Whole-line
-	@# comments are skipped; a region named in an inline comment is flagged too, which errs on the
-	@# loud side, as does a non-region string shaped like one. providers.tf is exempt: it is the one
-	@# file each environment replaces, so a region or an ARN in its partition belongs there. The fact
-	@# table is exempt only for its own exact line.
+	@# the GovCloud test suite is what proves portability. Whole-line comments are skipped; a
+	@# region named in an inline comment is flagged too, which errs on the loud side, as does a
+	@# non-region string shaped like one. providers.tf is exempt: it is the one file each
+	@# environment replaces, so a region or an ARN in its partition belongs there. The fact table
+	@# is exempt only for its own exact line.
 	@files=$$(find terraform -name '*.tf' -not -path '*/.terraform/*'); \
 	[ -n "$$files" ] || { echo "portability-check: no Terraform sources found"; exit 1; }; \
 	found=$$(grep -nHE 'arn:aws[a-z-]*:|"aws(-[a-z]+)*"|(^|[^[:alnum:]])[a-z]{2}(-gov|-iso[a-z]*)?-(north|south|east|west|central|northeast|northwest|southeast|southwest)-[0-9]+([^[:alnum:]]|$$)' $$files); \
