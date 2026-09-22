@@ -19,6 +19,9 @@
 
 # GitHub configuration
 !/.github/
+!/.github/.config/
+!/.github/.config/template-drift.yaml
+!/.github/.config/template-drift.lock
 !/.github/CODEOWNERS
 !/.github/PULL_REQUEST_TEMPLATE.md
 !/.github/renovate.json5
@@ -33,6 +36,7 @@
 !/.vscode/
 !/.vscode/extensions.json
 !/.vscode/settings.json
+!/.vscode/tasks.json
 
 # Terraform module sources and tests
 !/terraform/

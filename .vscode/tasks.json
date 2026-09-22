@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Workflow containers: run all",
+      "type": "shell",
+      "command": "pre-commit run --all-files",
+      "problemMatcher": []
+    },
+    {
+      "label": "Workflow containers: template drift",
+      "type": "shell",
+      "command": "pre-commit run template-drift --all-files --hook-stage pre-push",
+      "problemMatcher": []
+    },
+    {
+      "label": "Workflow containers: sync from template",
+      "type": "shell",
+      "command": "pre-commit run template-drift-sync --all-files --hook-stage manual",
+      "problemMatcher": []
+    }
+  ]
+}

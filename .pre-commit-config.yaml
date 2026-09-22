@@ -1,4 +1,10 @@
 repos:
+  - repo: https://github.com/nwarila-platform/workflow-template-drift
+    rev: f621507b3eaa1d7e8afe89f42b75c653968d2a48 # v2.0.0
+    hooks:
+      - id: template-drift
+      - id: template-drift-sync
+
   - repo: local
     hooks:
       - id: terraform-fmt
