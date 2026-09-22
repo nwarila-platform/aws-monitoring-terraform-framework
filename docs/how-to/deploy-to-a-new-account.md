@@ -23,33 +23,38 @@ runs only `init`, `plan`, and `apply` cannot make these checks, so a person make
    ```
 
    - If it passes, a trail already carries the alerts: leave `manage_trail` unset.
-   - If it fails and `aws cloudtrail list-trails` returns nothing, the account has no trail: set
-     `manage_trail = true` and the framework creates one.
-   - If it fails and a trail exists, the script's output names what that trail lacks: it is not
-     logging, does not cover this region, omits global service events, or records read events
-     only. Fix that trail rather than adding a second one, which bills every management event
-     twice.
+   - If it fails and `aws cloudtrail list-trails --region <region>` returns nothing, the account
+     has no trail: set `manage_trail = true` and the framework creates one.
+   - If it fails and a trail exists, that trail is missing something the alerts need: it may be
+     stopped, cover another region only, omit global service events, or record read events only.
+     The script names the first two cases; inspect the trail for the others. Fix that trail rather
+     than adding a second one, which is billed for every management event both copies record.
 5. **Write the value file.** Set `environment` and at least one address in `alert_emails`. Leave
    `exempt_pipeline_roles` unset, so every change alerts.
 
 ## After the first apply
 
 1. **Confirm the subscriptions.** Each recipient receives two confirmation emails, one for alerts
-   and one for channel health, and nothing is delivered until both are followed. This lists any
-   still pending:
+   and one for channel health. Each topic begins delivering as soon as its own subscription is
+   confirmed, so an unconfirmed health subscription silences the alarms alone. This lists what is
+   still pending, using the deploy role's own read of each topic:
 
    ```sh
-   aws sns list-subscriptions --query \
-     "Subscriptions[?contains(TopicArn, ':security-change-alerts') && SubscriptionArn=='PendingConfirmation']"
+   for arn in "$(terraform output -raw alert_topic_arn)" "$(terraform output -raw health_topic_arn)"; do
+     aws sns list-subscriptions-by-topic --region <region> --topic-arn "${arn}" \
+       --query "Subscriptions[?SubscriptionArn=='PendingConfirmation'].Endpoint"
+   done
    ```
 
 2. **Prove delivery, for both alerts.** As a person, not the pipeline, create a security group in
    the provider's region and delete it, then tag and untag a scratch IAM role. Within a few
-   minutes each recipient receives one message whose body begins `"alert": "Security group
-   changed"` and another beginning `"alert": "IAM permissions changed"`. The second proves the
-   IAM rule, whose events reach only the partition's global-service region. If either is missing,
-   the rule's `FailedInvocations` metric and the queue `security-change-alerts-dlq` say where it
-   stopped.
+   minutes each recipient receives a message for each call, whose first field is
+   `"alert": "Security group changed"` or `"alert": "IAM permissions changed"`. The second proves
+   the IAM rule, whose events reach only the partition's global-service region. If a message is
+   missing, work along the path: the call in CloudTrail event history, then the rule's
+   `MatchedEvents` and `Invocations`, then its `FailedInvocations` and the queue
+   `security-change-alerts-dlq`, then the topic's subscription state and
+   `NumberOfNotificationsFailed`.
 3. **Close the other regions.** A security-group change in any other region raises no alert.
    Deny resource creation outside the provider's region with an account control, as the
    [invariants](../reference/invariants.md) require, or record the gap as accepted.
