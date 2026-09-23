@@ -9,8 +9,10 @@ What this module guarantees:
 
 - Terraform and the AWS provider are exact-pinned in `terraform/versions.tf`, with provider
   checksums recorded in `terraform/.terraform.lock.hcl`.
-- The alert topic is encrypted at rest with a key this module owns and rotates yearly. The key
-  policy admits EventBridge with the two actions the SNS developer guide names and keeps the
+- The alert topic is encrypted at rest with a customer managed key. Where this module owns that
+  key it rotates it yearly; where a deployment names an existing key by alias, rotation and the
+  key policy belong to that key's owner, and Terraform cannot read a key policy to check it. The
+  key policy admits EventBridge with the two actions the SNS developer guide names and keeps the
   account root as administrator.
 - The topic policy admits `sns:Publish` from `events.amazonaws.com` and nothing else.
 - Every rule matches write calls only, on an exact `eventName` list asserted by test.

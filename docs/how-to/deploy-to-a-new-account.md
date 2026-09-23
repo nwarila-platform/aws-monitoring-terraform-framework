@@ -12,11 +12,27 @@ runs only `init`, `plan`, and `apply` cannot make these checks, so a person make
 2. **Configure the backend.** Supply the state bucket, key, and region as the
    [runner protocol](../reference/runner-protocol.md#backend-configuration) describes, starting
    from `terraform/backend.hcl.example`.
-3. **Create the deploy role.** Grant it
+3. **Decide where the key comes from.** An account that creates keys outside this pipeline names
+   an existing one: set `alert_key_alias` to its alias, without the `alias/` prefix, and the
+   framework creates no key, no alias and no key policy. That key must be customer managed,
+   symmetric and enabled, which the plan checks, and its **policy** must carry three things, which
+   no plan can check:
+
+   - authorization for this deploy role's `kms:DescribeKey`, either naming the role or through the
+     statement that delegates to the account's IAM policies. Without it the first plan fails at
+     the lookup;
+   - `kms:GenerateDataKey*` and `kms:Decrypt` for `events.amazonaws.com`, with no `aws:SourceArn`
+     or `aws:SourceAccount` condition, which AWS states is unsupported on this path;
+   - the same two actions for `cloudwatch.amazonaws.com`. Both topics share the key, so omitting
+     this silences the channel-health alarms alone.
+
+   Leave `alert_key_alias` unset and the framework creates and owns a key, which needs
+   `kms:CreateKey` and `kms:PutKeyPolicy` in the deploy role.
+4. **Create the deploy role.** Grant it
    [the calls the runner protocol lists](../reference/runner-protocol.md#deploy-role-permissions),
-   in the account's own partition, including `iam:GetRole` on the role itself. A role without it
-   fails the first plan.
-4. **Decide the trail.** With read credentials for the account, run:
+   in the account's own partition. A deployment that creates its own key also needs `iam:GetRole`
+   on the role itself, and a plan fails without it.
+5. **Decide the trail.** With read credentials for the account, run:
 
    ```sh
    AWS_REGION=<region> tools/check_cloudtrail.sh
@@ -31,7 +47,7 @@ runs only `init`, `plan`, and `apply` cannot make these checks, so a person make
      silently, so read `aws cloudtrail describe-trails --region <region>` for those. Fix that
      trail rather than adding a second one, which is billed for every management event both copies
      record.
-5. **Write the value file.** Set `environment` and at least one address in `alert_emails`. Leave
+6. **Write the value file.** Set `environment` and at least one address in `alert_emails`. Leave
    `exempt_pipeline_roles` unset, so every change alerts.
 
 ## After the first apply

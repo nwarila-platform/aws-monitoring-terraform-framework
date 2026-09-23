@@ -13,6 +13,18 @@ mock_provider "aws" {
     }
   }
 
+  # A key someone else owns, resolved from its alias. The id is the key's own identifier, distinct
+  # from the ARN and from the alias that was looked up; the spec and state are what the lookup's
+  # postconditions read, and a mock provider invents unrelated strings for anything left out.
+  mock_data "aws_kms_key" {
+    defaults = {
+      id        = "12345678-1234-1234-1234-123456789012"
+      arn       = "arn:aws-us-gov:kms:us-gov-west-1:${join("", ["123456", "789012"])}:key/12345678-1234-1234-1234-123456789012"
+      key_spec  = "SYMMETRIC_DEFAULT"
+      key_state = "Enabled"
+    }
+  }
+
   mock_data "aws_region" {
     defaults = {
       region = "us-gov-west-1"
@@ -80,9 +92,9 @@ run "every_arn_the_framework_writes_takes_the_providers_partition_and_region" {
 
   assert {
     condition = alltrue([
-      contains([for s in jsondecode(aws_kms_key.us_east_1.policy).Statement : s.Principal.AWS if s.Sid == "AccountAdministersTheKey"],
+      contains([for s in jsondecode(aws_kms_key.us_east_1["security-change-alerts"].policy).Statement : s.Principal.AWS if s.Sid == "AccountAdministersTheKey"],
       "arn:aws-us-gov:iam::123456789012:root"),
-      contains([for s in jsondecode(aws_kms_key.us_east_1.policy).Statement : s.Principal.AWS if s.Sid == "DeployRoleAdministersTheKey"],
+      contains([for s in jsondecode(aws_kms_key.us_east_1["security-change-alerts"].policy).Statement : s.Principal.AWS if s.Sid == "DeployRoleAdministersTheKey"],
       "arn:aws-us-gov:iam::123456789012:role/automation/example-deploy-role"),
     ])
     error_message = "The key policy must name the account root and the deploying role in the provider's partition."
@@ -100,7 +112,7 @@ run "every_arn_the_framework_writes_takes_the_providers_partition_and_region" {
 
   assert {
     condition = alltrue([
-      for document in [aws_kms_key.us_east_1.policy, aws_s3_bucket_policy.us_east_1_trail["management-events"].policy] :
+      for document in [aws_kms_key.us_east_1["security-change-alerts"].policy, aws_s3_bucket_policy.us_east_1_trail["management-events"].policy] :
       !strcontains(document, "arn:aws:")
     ])
     error_message = "Neither the key policy nor the trail bucket policy may name the commercial partition."
@@ -118,7 +130,7 @@ run "nothing_the_framework_produces_names_the_commercial_partition" {
     condition = alltrue([
       for document in concat(
         [
-          aws_kms_key.us_east_1.policy,
+          aws_kms_key.us_east_1["security-change-alerts"].policy,
           aws_sns_topic_policy.us_east_1.policy,
           aws_sns_topic_policy.us_east_1_health.policy,
           aws_sqs_queue_policy.us_east_1_dlq.policy,
@@ -210,5 +222,28 @@ run "omitted_values_fall_to_the_safe_defaults" {
   assert {
     condition     = !can(jsondecode(aws_cloudwatch_event_rule.us_east_1["security-group"].event_pattern).detail["$or"])
     error_message = "By default nobody is exempt from the security-group alert."
+  }
+}
+
+# GovCloud is also where a key is most likely to be supplied, because its accounts create keys
+# outside the pipeline that deploys these alerts.
+run "a_govcloud_deployment_can_use_a_key_it_was_given" {
+  command = plan
+
+  variables {
+    alert_key_alias = "platform-security-alerts"
+  }
+
+  assert {
+    condition     = length(aws_kms_key.us_east_1) == 0 && length(data.aws_iam_session_context.current) == 0
+    error_message = "A supplied key means no key of our own, and no reason to ask IAM for the deploying role."
+  }
+
+  assert {
+    condition = alltrue([
+      aws_sns_topic.us_east_1.kms_master_key_id == "12345678-1234-1234-1234-123456789012",
+      !strcontains(output.alert_key.arn, "arn:aws:"),
+    ])
+    error_message = "Both the topic's key and the reported ARN must come from the supplied key, in this partition."
   }
 }

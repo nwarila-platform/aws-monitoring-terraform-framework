@@ -2,6 +2,22 @@
 # re-exported - it is written into every tag map, so the resource tags themselves are the record.
 
 
+#region ------ [ Resource(s): aws_kms_key ] ---------------------------------------------------- #
+
+output "alert_key" {
+  description = <<-EOT
+    The key encrypting both topics, and whether this framework owns it. A supplied key's rotation
+    and policy belong to whoever owns it; this deployment only uses it.
+  EOT
+  value = {
+    arn               = local.alert_key_arn
+    framework_managed = var.alert_key_alias == null
+  }
+}
+
+#endregion --- [ Resource(s): aws_kms_key ] ---------------------------------------------------- #
+
+
 #region ------ [ Resource(s): aws_sns_topic ] -------------------------------------------------- #
 
 output "alert_topic_arn" {

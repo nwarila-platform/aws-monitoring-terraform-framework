@@ -8,8 +8,9 @@ rules read. It does not own account bootstrap, IAM, OIDC, or remote state.
 
 The module declares:
 
-- Channel: one `aws_kms_key` with its `aws_kms_alias`, one `aws_sns_topic` encrypted with that
-  key, its `aws_sns_topic_policy`, and one `aws_sns_topic_subscription` per recipient.
+- Channel: one key, either an `aws_kms_key` with its `aws_kms_alias` or one named by alias and
+  looked up, one `aws_sns_topic` encrypted with that key, its `aws_sns_topic_policy`, and one
+  `aws_sns_topic_subscription` per recipient.
 - Alerts: one `aws_cloudwatch_event_rule` per change alert and one `aws_cloudwatch_event_target`
   wiring it to the topic through an input transformer.
 - Health: a second `aws_sns_topic` with the same recipients, an `aws_sqs_queue` holding alerts

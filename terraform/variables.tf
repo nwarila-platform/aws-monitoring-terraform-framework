@@ -114,6 +114,38 @@ variable "manage_trail" {
   nullable    = false
 }
 
+variable "alert_key_alias" {
+  description = <<-EOT
+    The alias of an existing KMS key that encrypts the alert and channel-health topics, without
+    the `alias/` prefix. Name a key here when an account creates its keys outside this deployment:
+    the framework then creates no key, no alias and no key policy, and its deploy role needs only
+    kms:DescribeKey on that key. That key's policy must admit events.amazonaws.com and
+    cloudwatch.amazonaws.com, or the alerts deploy and never arrive; see the deployment guide.
+    Leave it null, the default, and the framework creates and owns a key for the channel.
+  EOT
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition     = var.alert_key_alias == null || can(regex("^[A-Za-z0-9/_-]{1,250}$", coalesce(var.alert_key_alias, "x")))
+    error_message = "alert_key_alias must be a KMS alias name of up to 250 characters from A-Z a-z 0-9 / _ - , or null."
+  }
+
+  # The prefix is added where the alias is looked up, as the reference framework adds it.
+  validation {
+    condition     = var.alert_key_alias == null || !startswith(coalesce(var.alert_key_alias, "x"), "alias/")
+    error_message = "alert_key_alias must NOT include the 'alias/' prefix (it is added automatically)."
+  }
+
+  # An AWS-managed key's policy cannot be edited, so it can never admit EventBridge: the alerts
+  # would deploy cleanly and deliver nothing.
+  validation {
+    condition     = var.alert_key_alias == null || !startswith(coalesce(var.alert_key_alias, "x"), "aws/")
+    error_message = "alert_key_alias must name a customer managed key: an aws/ alias names an AWS managed key, whose policy cannot admit EventBridge, so no alert would ever be delivered."
+  }
+}
+
 #endregion --- [ Managed AWS Capabilities ] ---------------------------------------------------- #
 
 

@@ -36,6 +36,7 @@ during PRs. Do not edit by hand between the markers below.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | alert\_emails | Email addresses that receive every change alert. Each address becomes one email subscription<br/>on the alert topic; SNS then emails the address a confirmation link, and nothing is delivered<br/>until the recipient follows it. An empty list creates the topic and rules with no recipients,<br/>which is the bootstrap state before the first addresses are agreed. | `list(string)` | n/a | yes |
+| alert\_key\_alias | The alias of an existing KMS key that encrypts the alert and channel-health topics, without<br/>the `alias/` prefix. Name a key here when an account creates its keys outside this deployment:<br/>the framework then creates no key, no alias and no key policy, and its deploy role needs only<br/>kms:DescribeKey on that key. That key's policy must admit events.amazonaws.com and<br/>cloudwatch.amazonaws.com, or the alerts deploy and never arrive; see the deployment guide.<br/>Leave it null, the default, and the framework creates and owns a key for the channel. | `string` | `null` | no |
 | commit\_sha | Checked-out commit (git rev-parse HEAD after checkout, never a synthetic merge commit),<br/>stamped as the CommitSha tag. | `string` | n/a | yes |
 | environment | Deployment environment tag value applied to managed AWS resources. Exactly one of dev, test,<br/>or prod (lowercase). | `string` | n/a | yes |
 | exempt\_pipeline\_roles | IAM role names, or name patterns using `*`, whose security-group changes are not emailed, for<br/>automation that rewrites security groups on every run and would otherwise drown the changes a<br/>person needs to see. A pattern such as `<org>_*_runner` covers every pipeline that follows a<br/>naming convention, including ones added later, so the list cannot fall behind the fleet. The<br/>exemption is narrow by construction: it applies to the security-group alert only, never to<br/>IAM, so creating a role whose name matches still alerts; and an event carrying no assumed-role<br/>identity still alerts. The default exempts nobody. | `list(string)` | `[]` | no |
@@ -48,6 +49,7 @@ during PRs. Do not edit by hand between the markers below.
 
 | Name | Description |
 | ---- | ----------- |
+| alert\_key | The key encrypting both topics, and whether this framework owns it. A supplied key's rotation<br/>and policy belong to whoever owns it; this deployment only uses it. |
 | alert\_rules | EventBridge rules keyed by change alert, with the exact API calls each one matches. |
 | alert\_subscriptions | Email subscriptions keyed by address. pending\_confirmation stays true until the recipient<br/>follows the link SNS emailed them; an address that is still pending receives nothing. |
 | alert\_topic\_arn | ARN of the SNS topic every change alert is published to. |
