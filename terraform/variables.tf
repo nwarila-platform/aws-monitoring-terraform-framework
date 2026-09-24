@@ -128,20 +128,20 @@ variable "alert_key_alias" {
   nullable    = true
 
   validation {
-    condition     = var.alert_key_alias == null || can(regex("^[A-Za-z0-9/_-]{1,250}$", coalesce(var.alert_key_alias, "x")))
+    condition     = var.alert_key_alias == null || can(regex("^[A-Za-z0-9/_-]{1,250}$", var.alert_key_alias))
     error_message = "alert_key_alias must be a KMS alias name of up to 250 characters from A-Z a-z 0-9 / _ - , or null."
   }
 
   # The prefix is added where the alias is looked up, as the reference framework adds it.
   validation {
-    condition     = var.alert_key_alias == null || !startswith(coalesce(var.alert_key_alias, "x"), "alias/")
+    condition     = var.alert_key_alias == null || try(!startswith(var.alert_key_alias, "alias/"), false)
     error_message = "alert_key_alias must NOT include the 'alias/' prefix (it is added automatically)."
   }
 
   # An AWS-managed key's policy cannot be edited, so it can never admit EventBridge: the alerts
   # would deploy cleanly and deliver nothing.
   validation {
-    condition     = var.alert_key_alias == null || !startswith(coalesce(var.alert_key_alias, "x"), "aws/")
+    condition     = var.alert_key_alias == null || try(!startswith(var.alert_key_alias, "aws/"), false)
     error_message = "alert_key_alias must name a customer managed key: an aws/ alias names an AWS managed key, whose policy cannot admit EventBridge, so no alert would ever be delivered."
   }
 }

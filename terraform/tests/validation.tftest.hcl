@@ -52,6 +52,7 @@ variables {
   manage_trail          = false
   exempt_pipeline_roles = []
   alert_emails          = ["security@example.com"]
+  alert_key_alias       = null
 }
 
 run "rejects_an_address_without_a_domain" {
@@ -366,6 +367,16 @@ run "rejects_a_key_alias_written_as_an_arn" {
 
   variables {
     alert_key_alias = "arn:aws:kms:us-east-1:123456789012:alias/platform-security-alerts"
+  }
+
+  expect_failures = [var.alert_key_alias]
+}
+
+run "rejects_an_empty_key_alias" {
+  command = plan
+
+  variables {
+    alert_key_alias = ""
   }
 
   expect_failures = [var.alert_key_alias]

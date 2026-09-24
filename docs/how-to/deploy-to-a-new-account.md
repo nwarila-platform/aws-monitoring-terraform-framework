@@ -28,6 +28,13 @@ runs only `init`, `plan`, and `apply` cannot make these checks, so a person make
 
    Leave `alert_key_alias` unset and the framework creates and owns a key, which needs
    `kms:CreateKey` and `kms:PutKeyPolicy` in the deploy role.
+
+   Setting an alias on a deployment that already owns a key is not free. The plan deletes the
+   framework's alias, schedules its key for deletion and re-encrypts both topics with the supplied
+   key. A key scheduled for deletion is unusable at once, not at the end of its waiting period,
+   so an alert still awaiting delivery at that moment is lost; anything published afterwards is
+   not. Make that change in a quiet window, and treat it as a first apply: the delivery test
+   below decides whether it worked.
 4. **Create the deploy role.** Grant it
    [the calls the runner protocol lists](../reference/runner-protocol.md#deploy-role-permissions),
    in the account's own partition. A deployment that creates its own key also needs `iam:GetRole`
@@ -65,12 +72,13 @@ runs only `init`, `plan`, and `apply` cannot make these checks, so a person make
    done
    ```
 
-2. **Prove delivery, for both alerts.** As a person, not the pipeline, create a security group in
-   the provider's region and delete it, then tag and untag a scratch IAM role. Within a few
-   minutes each recipient receives a message for each call, whose first field is
-   `"alert": "Security group changed"` or `"alert": "IAM permissions changed"`. The second proves
-   the IAM rule, whose events reach only the partition's global-service region. If a message is
-   missing, work along the path: the call in CloudTrail event history, then the rule's
+2. **Prove delivery, for both alerts.** A deployment that supplies its own key is not accepted
+   until this passes, because no plan can check that key's policy. As a person, not the pipeline,
+   create a security group in the provider's region and delete it, then tag and untag a scratch
+   IAM role. Within a few minutes each recipient receives a message for each call, whose first
+   field is `"alert": "Security group changed"` or `"alert": "IAM permissions changed"`. The
+   second proves the IAM rule, whose events reach only the partition's global-service region. If a
+   message is missing, work along the path: the call in CloudTrail event history, then the rule's
    `MatchedEvents` and `Invocations`, then its `FailedInvocations` and the queue
    `security-change-alerts-dlq`, then the topic's subscription state and
    `NumberOfNotificationsFailed`.

@@ -70,6 +70,7 @@ variables {
   manage_trail          = false
   alert_emails          = ["security@example.com", "oncall@example.com"]
   exempt_pipeline_roles = ["example-pipeline-role"]
+  alert_key_alias       = null
 }
 
 # The rule IS the alert. Every write call that counts is named here, as an exact list, so a

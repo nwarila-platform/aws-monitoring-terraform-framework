@@ -12,6 +12,11 @@ behavior without making AWS API calls.
   key policy admits EventBridge without a condition and keeps the account root, that the topic
   policy admits EventBridge only, that each address is one email subscription, that no addresses
   means no subscriptions and nothing else changes, and that the outputs record it all.
+- The supplied-key runs in `alerts.tftest.hcl` name a key by alias and assert that no key, no
+  alias and no session-context lookup are planned, that both topics carry the resolved key's own
+  id rather than the alias, and that the output reports the key as not the framework's. Two runs
+  drive the lookup's postconditions, each overriding the whole mocked key with exactly one thing
+  wrong: an asymmetric key and one pending deletion.
 - The reliability runs in `alerts.tftest.hcl` assert the dead-letter queue is wired to every
   target with a one-hour retry window, that its policy names only this framework's rules, that
   all four alarms report to the health topic and treat missing data as healthy, and that the
@@ -23,12 +28,13 @@ behavior without making AWS API calls.
 - `terraform/tests/portability.tftest.hcl` renders the configuration with a GovCloud partition
   and region and fails if any policy the framework writes names the commercial partition. It also
   plans with `manage_trail` and `exempt_pipeline_roles` omitted to prove their defaults create no
-  trail and exempt nobody.
+  trail and exempt nobody, and renders the supplied-key mode in that partition.
 - `terraform/tests/tagging.tftest.hcl` verifies that provider `default_tags` carries exactly the
   six identity keys and that the key, the topic and each rule carry them plus their own `Name`.
 - `terraform/tests/validation.tftest.hcl` provides one negative run per validation rule:
-  malformed and duplicate addresses, environment outside the lowercase set, and every identity
-  variable's accepted form.
+  malformed and duplicate addresses, environment outside the lowercase set, every identity
+  variable's accepted form, and a key alias that is empty, carries the `alias/` prefix, names an
+  AWS-managed key or is written as an ARN.
 - `make ci` also runs formatting, `terraform init`, validation, TFLint, terraform-docs drift
   detection, documentation layout checks, and the bidirectional deny-all `.gitignore` allowlist
   guard.

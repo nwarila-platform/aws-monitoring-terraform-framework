@@ -40,6 +40,7 @@ variables {
   manage_trail          = false
   exempt_pipeline_roles = []
   alert_emails          = []
+  alert_key_alias       = null
 }
 
 # What provider default_tags carries, pinned as an exact key set. These six are the only keys
