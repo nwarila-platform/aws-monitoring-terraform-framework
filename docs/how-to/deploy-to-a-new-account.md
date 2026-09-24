@@ -82,6 +82,18 @@ runs only `init`, `plan`, and `apply` cannot make these checks, so a person make
    `MatchedEvents` and `Invocations`, then its `FailedInvocations` and the queue
    `security-change-alerts-dlq`, then the topic's subscription state and
    `NumberOfNotificationsFailed`.
+
+   That proves EventBridge can publish through the key; the health alarms publish as CloudWatch,
+   which a supplied key must admit separately. Force one alarm into ALARM and let it recover:
+
+   ```sh
+   aws cloudwatch set-alarm-state --region <region> --alarm-name security-change-alerts-undelivered \
+     --state-value ALARM --state-reason "delivery test"
+   ```
+
+   Each recipient receives an ALARM message on the health topic, and an OK message when the next
+   evaluation restores the alarm. A deployment that supplies its own key is not accepted until
+   both alert types and this health message have arrived.
 3. **Close the other regions.** A security-group change in any other region raises no alert.
    Deny resource creation outside the provider's region with an account control, as the
    [invariants](../reference/invariants.md) require, or record the gap as accepted.
