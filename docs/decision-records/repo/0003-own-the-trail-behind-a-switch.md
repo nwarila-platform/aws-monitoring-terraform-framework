@@ -149,8 +149,8 @@ None (current).
 - nwarila-platform/aws-monitoring-terraform-framework#3, "feat: deploy one commit to any account
   by changing providers.tf alone": `manage_trail` defaults to false.
 - nwarila-platform/aws-monitoring-terraform-framework#13, "feat(alerts): email trail changes, and
-  close the whole-project audit": logging, organization scope and the
-  management-event selector stated on the trail, and the bucket's refusal of plain HTTP.
+  close the whole-project audit": logging, organization scope and the management-event selector
+  stated on the trail, and the bucket's refusal of plain HTTP.
 
 ## Related ADRs
 

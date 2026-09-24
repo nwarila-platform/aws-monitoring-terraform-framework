@@ -178,8 +178,8 @@ None.
 - nwarila-platform/aws-monitoring-terraform-framework#11, "feat(alerts): encrypt the channel with
   a key supplied by alias".
 - nwarila-platform/aws-monitoring-terraform-framework#13, "feat(alerts): email trail changes, and
-  close the whole-project audit": the health topic without a key, and
-  the transitional CloudWatch statement.
+  close the whole-project audit": the health topic without a key, and the transitional CloudWatch
+  statement.
 - nwarila-platform/aws-monitoring-terraform-framework#15, "fix(alerts): stop admitting CloudWatch
   to the key, now every deployment has converged": the transitional statement removed.
 

@@ -211,8 +211,7 @@ None (current).
 - nwarila-platform/aws-monitoring-terraform-framework#5, "fix(alerts): prove the exemption with
   real role names, and keep people out of it".
 - nwarila-platform/aws-monitoring-terraform-framework#13, "feat(alerts): email trail changes, and
-  close the whole-project audit": the CloudTrail alert, never exempt, with its
-  fixtures.
+  close the whole-project audit": the CloudTrail alert, never exempt, with its fixtures.
 
 ## Related ADRs
 

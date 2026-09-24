@@ -166,8 +166,8 @@ None (current).
   by changing providers.tf alone": the key, topic and rule ARNs take their partition and region
   from the provider.
 - nwarila-platform/aws-monitoring-terraform-framework#13, "feat(alerts): email trail changes, and
-  close the whole-project audit": the third rule, for trail changes, and the
-  channel's own health resources named in the resource set.
+  close the whole-project audit": the third rule, for trail changes, and the channel's own health
+  resources named in the resource set.
 
 ## Related ADRs
 
