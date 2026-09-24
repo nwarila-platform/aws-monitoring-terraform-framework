@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/nwarila-platform/aws-monitoring-terraform-framework/compare/v0.3.0...v0.3.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* **alerts:** stop admitting CloudWatch to the key, now every deployment has converged ([#15](https://github.com/nwarila-platform/aws-monitoring-terraform-framework/issues/15)) ([13c2aab](https://github.com/nwarila-platform/aws-monitoring-terraform-framework/commit/13c2aabaa5980e342d41c82fb7358368977a66da))
+
 ## [0.3.0](https://github.com/nwarila-platform/aws-monitoring-terraform-framework/compare/v0.2.0...v0.3.0) (2026-09-24)
 
 
