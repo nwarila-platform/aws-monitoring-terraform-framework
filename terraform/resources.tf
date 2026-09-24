@@ -121,6 +121,8 @@ resource "aws_sns_topic_subscription" "us_east_1" {
 
 #region ------ [ aws_sns_topic.health - us-east-1 ] -------------------------------------------- #
 
+# An unencrypted topic is an accepted deviation: see ADR repo/0004.
+#trivy:ignore:AVD-AWS-0095
 resource "aws_sns_topic" "us_east_1_health" {
 
   provider = aws.us_east_1
