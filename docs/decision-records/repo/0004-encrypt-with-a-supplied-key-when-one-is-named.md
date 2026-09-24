@@ -206,4 +206,4 @@ None.
 | 2026-09-23 | Accepted. | An account that creates keys outside CI could not deploy the alerts. | Portfolio maintainer | Yes |
 | 2026-09-24 | The health topic is no longer encrypted; prior text kept under Previous decisions. Follow-up: remove the key policy's `CloudWatchPublishesThroughTheKey` statement in the release after every deployment has converged. | A report of a broken key must not depend on that key. | Portfolio maintainer | Yes |
 | 2026-09-24 | Removed the key policy's `CloudWatchPublishesThroughTheKey` statement, the previous row's follow-up; the Decision Outcome now records it in the past tense. | Every deployment had converged on the unencrypted health topic. | Portfolio maintainer | Yes |
-| 2026-09-24 | Implementing PRs: added #13 and #15. | Record the pull request that carried this record's 2026-09-24 edits. | Portfolio maintainer | Yes |
+| 2026-09-24 | Implementing PRs: added #13 and #15. | Record the pull requests that carried this record's 2026-09-24 edits. | Portfolio maintainer | Yes |
