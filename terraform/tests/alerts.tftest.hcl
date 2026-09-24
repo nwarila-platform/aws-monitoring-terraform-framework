@@ -149,6 +149,36 @@ run "iam_rule_matches_exactly_the_documented_write_calls" {
   }
 }
 
+# Stopping or narrowing the trail silences every other alert here, so the calls that do it are an
+# alert of their own, and nobody is exempt from it.
+run "cloudtrail_rule_matches_exactly_the_documented_write_calls" {
+  command = plan
+
+  assert {
+    condition = jsondecode(aws_cloudwatch_event_rule.us_east_1["cloudtrail"].event_pattern).detail.eventName == [
+      "DeleteTrail",
+      "PutEventSelectors",
+      "StopLogging",
+      "UpdateTrail",
+    ]
+    error_message = "The cloudtrail rule must match exactly the four calls that stop, delete or reshape a trail, and nothing else."
+  }
+
+  assert {
+    condition = alltrue([
+      jsondecode(aws_cloudwatch_event_rule.us_east_1["cloudtrail"].event_pattern).source == ["aws.cloudtrail"],
+      jsondecode(aws_cloudwatch_event_rule.us_east_1["cloudtrail"].event_pattern)["detail-type"] == ["AWS API Call via CloudTrail"],
+      jsondecode(aws_cloudwatch_event_rule.us_east_1["cloudtrail"].event_pattern).detail.eventSource == ["cloudtrail.amazonaws.com"],
+    ])
+    error_message = "The cloudtrail rule must match the CloudTrail API-call events of the CloudTrail service."
+  }
+
+  assert {
+    condition     = !can(jsondecode(aws_cloudwatch_event_rule.us_east_1["cloudtrail"].event_pattern).detail["$or"])
+    error_message = "The CloudTrail alert must never exempt a principal."
+  }
+}
+
 # The exemption is the one place an alert is deliberately narrowed, so its shape is pinned. Two
 # branches: the change was made by a role that is not exempt, or by an identity that carries no
 # assumed-role name at all. Without the second branch, a root-user or service-made change would
@@ -195,7 +225,7 @@ run "no_exempt_roles_means_no_exemption_clause" {
 
   assert {
     condition = alltrue([
-      for key in ["security-group", "iam"] :
+      for key in ["cloudtrail", "iam", "security-group"] :
       !can(jsondecode(aws_cloudwatch_event_rule.us_east_1[key].event_pattern).detail["$or"])
     ])
     error_message = "An empty exemption list must leave the patterns matching every principal."
@@ -219,8 +249,8 @@ run "rules_live_on_the_default_bus_and_are_enabled" {
   }
 
   assert {
-    condition     = sort(keys(aws_cloudwatch_event_rule.us_east_1)) == sort(["iam", "security-group"])
-    error_message = "Exactly two change alerts exist: iam and security-group."
+    condition     = sort(keys(aws_cloudwatch_event_rule.us_east_1)) == sort(["cloudtrail", "iam", "security-group"])
+    error_message = "Exactly three change alerts exist: cloudtrail, iam and security-group."
   }
 }
 
@@ -319,13 +349,20 @@ run "the_key_admits_eventbridge_and_stays_administrable" {
     error_message = "The key policy must keep the account root as administrator."
   }
 
+  # Each value the design depends on is stated on the resource rather than left to the provider,
+  # so a change in a default can never move it.
   assert {
     condition = alltrue([
-      aws_kms_key.us_east_1["security-change-alerts"].enable_key_rotation == true,
+      aws_kms_key.us_east_1["security-change-alerts"].bypass_policy_lockout_safety_check == false,
+      aws_kms_key.us_east_1["security-change-alerts"].customer_master_key_spec == "SYMMETRIC_DEFAULT",
       aws_kms_key.us_east_1["security-change-alerts"].deletion_window_in_days == 30,
+      aws_kms_key.us_east_1["security-change-alerts"].enable_key_rotation == true,
+      aws_kms_key.us_east_1["security-change-alerts"].is_enabled == true,
+      aws_kms_key.us_east_1["security-change-alerts"].key_usage == "ENCRYPT_DECRYPT",
+      aws_kms_key.us_east_1["security-change-alerts"].rotation_period_in_days == 365,
       aws_kms_alias.us_east_1["security-change-alerts"].name == "alias/security-change-alerts",
     ])
-    error_message = "The key rotates yearly, waits the full 30 days before deletion, and is aliased as security-change-alerts."
+    error_message = "The key is an enabled symmetric encryption key that rotates yearly, keeps the lockout check, waits the full 30 days before deletion, and is aliased as security-change-alerts."
   }
 }
 
@@ -350,10 +387,35 @@ run "the_key_policy_names_the_role_that_deploys_it" {
     condition     = length([for statement in jsondecode(aws_kms_key.us_east_1["security-change-alerts"].policy).Statement : statement if statement.Sid == "DeployRoleAdministersTheKey"]) == 1
     error_message = "Exactly one statement names the deploying role."
   }
+
+  # Exactly the calls this configuration makes on the key across create, read, update, tag and
+  # delete; a call nothing here makes is not granted.
+  assert {
+    condition = [
+      for statement in jsondecode(aws_kms_key.us_east_1["security-change-alerts"].policy).Statement :
+      statement.Action if statement.Sid == "DeployRoleAdministersTheKey"
+      ][0] == [
+      "kms:CreateAlias",
+      "kms:DeleteAlias",
+      "kms:DescribeKey",
+      "kms:EnableKeyRotation",
+      "kms:GetKeyPolicy",
+      "kms:GetKeyRotationStatus",
+      "kms:ListResourceTags",
+      "kms:PutKeyPolicy",
+      "kms:ScheduleKeyDeletion",
+      "kms:TagResource",
+      "kms:UntagResource",
+      "kms:UpdateAlias",
+      "kms:UpdateKeyDescription",
+    ]
+    error_message = "The deploying role's statement must grant exactly the thirteen calls this configuration makes on the key."
+  }
 }
 
-# The deploying role is named as IAM reports it, so a role under a path keeps that path. Rebuilding
-# it from the session ARN, which carries no path, would name a role that does not exist.
+# The deploying role is named as IAM reports it, so a role under a path keeps that path.
+# Rebuilding it from the session ARN, which carries no path, would name a role that does not
+# exist.
 run "a_role_under_a_path_is_named_with_its_path" {
   command = plan
 
@@ -420,7 +482,7 @@ run "no_recipients_means_no_subscriptions_and_nothing_else_changes" {
   }
 
   assert {
-    condition     = length(aws_cloudwatch_event_rule.us_east_1) == 2 && length(aws_cloudwatch_event_target.us_east_1) == 2
+    condition     = length(aws_cloudwatch_event_rule.us_east_1) == 3 && length(aws_cloudwatch_event_target.us_east_1) == 3
     error_message = "The rules and targets exist regardless of recipients."
   }
 }
@@ -430,8 +492,9 @@ run "outputs_record_the_rules_and_pending_subscriptions" {
 
   assert {
     condition = alltrue([
-      sort(keys(output.alert_rules)) == sort(["iam", "security-group"]),
+      sort(keys(output.alert_rules)) == sort(["cloudtrail", "iam", "security-group"]),
       output.alert_rules["iam"].event_names == local.change_alerts["iam"].event_names,
+      output.alert_rules["cloudtrail"].event_names == local.change_alerts["cloudtrail"].event_names,
       output.alert_rules["security-group"].name == "security-change-alerts-security-group",
       output.alert_topic_arn == aws_sns_topic.us_east_1.arn,
       sort(keys(output.alert_subscriptions)) == sort(["oncall@example.com", "security@example.com"]),
@@ -465,7 +528,7 @@ run "undelivered_alerts_are_kept_and_alarmed" {
   assert {
     condition = jsondecode(aws_sqs_queue_policy.us_east_1_dlq.policy).Statement[0].Condition.ArnEquals["aws:SourceArn"] == [
       # Map iteration is alphabetical, which is the order the policy is built in.
-      for key in ["iam", "security-group"] : aws_cloudwatch_event_rule.us_east_1[key].arn
+      for key in ["cloudtrail", "iam", "security-group"] : aws_cloudwatch_event_rule.us_east_1[key].arn
     ]
     error_message = "The queue must accept messages only from this framework's own rules."
   }
@@ -482,17 +545,36 @@ run "the_alert_channel_reports_on_itself" {
         values(aws_cloudwatch_metric_alarm.us_east_1_failed_invocations),
         [aws_cloudwatch_metric_alarm.us_east_1_undelivered, aws_cloudwatch_metric_alarm.us_east_1_notification_failures],
         ) : alltrue([
+          alarm.actions_enabled == true,
           alarm.alarm_actions == toset([aws_sns_topic.us_east_1_health.arn]),
+          alarm.ok_actions == toset([aws_sns_topic.us_east_1_health.arn]),
           # These metrics are published only when non-zero, so absent data is the healthy state.
           alarm.treat_missing_data == "notBreaching",
           alarm.threshold == 1,
       ])
     ])
-    error_message = "Every health alarm must notify the health topic and treat absent data as healthy."
+    error_message = "Every health alarm must be enabled, notify the health topic on both transitions, and treat absent data as healthy."
+  }
+
+  # An alarm on the wrong dimension is green forever; each one watches its own rule, the queue or
+  # the alert topic by name.
+  assert {
+    condition = alltrue(concat(
+      [
+        for key, alarm in aws_cloudwatch_metric_alarm.us_east_1_failed_invocations :
+        alarm.dimensions == tomap({ RuleName = aws_cloudwatch_event_rule.us_east_1[key].name })
+      ],
+      [
+        aws_cloudwatch_metric_alarm.us_east_1_undelivered.dimensions == tomap({ QueueName = aws_sqs_queue.us_east_1_dlq.name }),
+        aws_cloudwatch_metric_alarm.us_east_1_notification_failures.dimensions == tomap({ TopicName = aws_sns_topic.us_east_1.name }),
+      ],
+    ))
+    error_message = "Each failed-invocation alarm must watch its own rule, the undelivered alarm the queue, and the notification alarm the alert topic."
   }
 
   assert {
     condition = sort(output.health_alarms) == sort([
+      "security-change-alerts-cloudtrail-failed-invocations",
       "security-change-alerts-iam-failed-invocations",
       "security-change-alerts-notification-failures",
       "security-change-alerts-security-group-failed-invocations",
@@ -501,17 +583,39 @@ run "the_alert_channel_reports_on_itself" {
     error_message = "Three kinds of failure are watched: a rule that cannot deliver, an alert left undelivered, and a notification SNS could not send."
   }
 
+  # Unencrypted on purpose: a broken key policy is one of the failures this topic reports, so the
+  # report must not depend on the key.
   assert {
     condition = alltrue([
       # The mock hands every topic the same ARN, so identity is asserted on the real names.
       aws_sns_topic.us_east_1_health.name == "security-change-alerts-health",
       aws_sns_topic.us_east_1_health.name != aws_sns_topic.us_east_1.name,
-      aws_sns_topic.us_east_1_health.kms_master_key_id == aws_kms_key.us_east_1["security-change-alerts"].key_id,
+      aws_sns_topic.us_east_1_health.kms_master_key_id == null,
       sort(keys(aws_sns_topic_subscription.us_east_1_health)) == sort(var.alert_emails),
     ])
-    error_message = "The health topic must be a second encrypted topic carrying the same recipients."
+    error_message = "The health topic must be a second, unencrypted topic carrying the same recipients."
   }
 
+  # The health topic answers to this deployment's own alarms and nothing else; the list is read
+  # from the alarm resources, so it can never fall behind the alarm count.
+  assert {
+    condition = alltrue([
+      length(jsondecode(aws_sns_topic_policy.us_east_1_health.policy).Statement) == 1,
+      jsondecode(aws_sns_topic_policy.us_east_1_health.policy).Statement[0].Principal.Service == "cloudwatch.amazonaws.com",
+      jsondecode(aws_sns_topic_policy.us_east_1_health.policy).Statement[0].Action == "sns:Publish",
+      jsondecode(aws_sns_topic_policy.us_east_1_health.policy).Statement[0].Resource == aws_sns_topic.us_east_1_health.arn,
+      length(jsondecode(aws_sns_topic_policy.us_east_1_health.policy).Statement[0].Condition.ArnEquals["aws:SourceArn"]) == 5,
+      toset(jsondecode(aws_sns_topic_policy.us_east_1_health.policy).Statement[0].Condition.ArnEquals["aws:SourceArn"]) == toset(concat(
+        [for alarm in aws_cloudwatch_metric_alarm.us_east_1_failed_invocations : alarm.arn],
+        [aws_cloudwatch_metric_alarm.us_east_1_undelivered.arn, aws_cloudwatch_metric_alarm.us_east_1_notification_failures.arn],
+      )),
+    ])
+    error_message = "The health topic policy must admit CloudWatch publishing as one of this deployment's five alarms, and nothing else."
+  }
+
+  # The health topic no longer uses the key, but a deployment converging from a release where it
+  # did rewrites the topic and this policy in one apply with nothing ordering the two. The
+  # statement stays for one release; the release that removes it asserts its absence instead.
   assert {
     condition = contains(jsondecode(aws_kms_key.us_east_1["security-change-alerts"].policy).Statement, {
       Sid       = "CloudWatchPublishesThroughTheKey"
@@ -520,15 +624,15 @@ run "the_alert_channel_reports_on_itself" {
       Action    = ["kms:GenerateDataKey*", "kms:Decrypt"]
       Resource  = "*"
     })
-    error_message = "The key must admit CloudWatch, or the alarms cannot publish to the encrypted health topic."
+    error_message = "The key must keep admitting CloudWatch until every deployment has converged off the encrypted health topic."
   }
 }
 
 
 # A deployment whose account creates keys outside this pipeline names one by alias. The framework
-# then owns no key: what it must still do is encrypt both topics with the key it was given.
+# then owns no key: what it must still do is encrypt the alert topic with the key it was given.
 
-run "a_supplied_alias_encrypts_both_topics_and_creates_no_key" {
+run "a_supplied_alias_encrypts_the_alert_topic_and_creates_no_key" {
   command = plan
 
   variables {
@@ -548,9 +652,9 @@ run "a_supplied_alias_encrypts_both_topics_and_creates_no_key" {
   assert {
     condition = alltrue([
       aws_sns_topic.us_east_1.kms_master_key_id == "12345678-1234-1234-1234-123456789012",
-      aws_sns_topic.us_east_1_health.kms_master_key_id == "12345678-1234-1234-1234-123456789012",
+      aws_sns_topic.us_east_1_health.kms_master_key_id == null,
     ])
-    error_message = "Both topics must be encrypted with the supplied key's own id, not the alias that resolved it."
+    error_message = "The alert topic must be encrypted with the supplied key's own id, not the alias that resolved it, and the health topic with nothing."
   }
 
   assert {

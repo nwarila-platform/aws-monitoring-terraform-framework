@@ -25,11 +25,13 @@ make docs       # regenerate docs/reference/terraform.md
 ## Adding an alert
 
 1. Add an entry to `local.change_alerts` in `terraform/locals.tf`: the CloudTrail `source`,
-   `eventSource`, the exact write calls, a headline and a description.
-2. Add a run to `terraform/tests/alerts.tftest.hcl` that pins the new rule's event pattern
-   verbatim, and extend the runs that count rules.
-3. Add the rule's ARN shape to the deploy role's `events` policy if its name does not already
-   match `security-change-alerts-*`.
+   `eventSource`, the exact write calls, a headline, a description, and whether pipelines are
+   exempt. The rule, target and alarm names are derived from the entry's key.
+2. Add its fixtures under `tools/fixtures/events/<key>/`, at least one `match-*.json` and one
+   `nomatch-*.json`, and allowlist the directory and its files in `.gitignore`; the deploy proves
+   every rule against them and refuses a rule that has none.
+3. Add a run to `terraform/tests/alerts.tftest.hcl` that pins the new rule's event pattern
+   verbatim, and move the runs that count rules and alarms.
 4. Run `make ci`, then `make docs`.
 
 ## Before opening a PR

@@ -35,11 +35,16 @@ Non-negotiable rules for this module. Violating one of these is a breaking chang
   KMS's lockout safety check on `CreateKey` never depends on a tag the key cannot yet carry. The
   role MUST be named as IAM reports it through `aws_iam_session_context`, never rebuilt from the
   session ARN, which drops the role's path.
-- The topic MUST be encrypted with a customer managed key: one this module owns, with yearly
-  rotation enabled, or one named by alias whose owner is then responsible for its rotation and
-  policy. The key policy MUST carry the SNS developer guide's statement for event sources
+- The alert topic MUST be encrypted with a customer managed key: one this module owns, with
+  yearly rotation enabled, or one named by alias whose owner is then responsible for its rotation
+  and policy. The key policy MUST carry the SNS developer guide's statement for event sources
   verbatim: the two actions to `events.amazonaws.com` with no source condition.
-- The topic policy MUST admit `sns:Publish` from `events.amazonaws.com` and no other principal.
+- The health topic MUST NOT be encrypted: a broken key policy is one of the failures it reports,
+  and the report must not depend on the key. Its policy MUST admit `sns:Publish` from
+  `cloudwatch.amazonaws.com` conditioned on this deployment's own alarm ARNs, read from the
+  alarm resources, and no other principal.
+- The alert topic policy MUST admit `sns:Publish` from `events.amazonaws.com` and no other
+  principal.
 - Recipients MUST be email subscriptions created pending; nothing in this module MAY confirm one.
 - Every target MUST have a dead-letter queue, and that queue MUST accept messages only from this
   framework's own rules, named individually rather than by wildcard.
@@ -53,10 +58,11 @@ Non-negotiable rules for this module. Violating one of these is a breaking chang
 - A trail this framework owns MUST be multi-region, MUST include global service events, MUST
   validate its log files, and MUST carry `prevent_destroy` along with its bucket.
 - A runner MUST run the plan-aware trail check before applying, MUST prove a logging trail covers
-  the region after applying, and MUST read the rules, target, key and subscriptions back from AWS
-  after applying. Proving the trail MUST
-  reject a trail that records only read events.
+  the region after applying, and MUST read back from AWS after applying: each rule; each target
+  with its queue, retry policy and transformer; both topics, key and policy; the subscriptions,
+  compared as addresses; and each alarm's configuration. Proving the trail MUST reject a trail
+  that records only read events.
 - A `prod` deployment MUST name at least one recipient, and the deploy MUST fail when the live
   subscription count is short of the configured one.
-- Resource keys used in outputs (`iam`, `security-group`, recipient addresses) MUST remain
-  stable across patch versions.
+- Resource keys used in outputs (`cloudtrail`, `iam`, `security-group`, recipient addresses)
+  MUST remain stable across patch versions.

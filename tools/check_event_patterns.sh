@@ -76,7 +76,7 @@ while read -r rule; do
         printf 'skip %-28s %-42s no role is exempt in this deployment\n' "${name}" "$(basename "${fixture}")"
         continue
       else
-        # The IAM fixture proves a pipeline role is NOT exempt from IAM; any role name does.
+        # A never-exempt alert's fixture proves a pipeline role still alerts; any role name does.
         roles=("example-pipeline-role")
       fi
     fi

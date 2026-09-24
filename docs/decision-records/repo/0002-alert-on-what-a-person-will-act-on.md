@@ -7,8 +7,8 @@
 | Status           | Accepted                                                                    |
 | Decision-subject | Which changes raise an email, which principals are exempt, and what the message contains. |
 | Date accepted    | 2026-09-16                                                                  |
-| Date             | 2026-09-22                                                                  |
-| Last reviewed    | 2026-09-22                                                                  |
+| Date             | 2026-09-24                                                                  |
+| Last reviewed    | 2026-09-24                                                                  |
 | Authors          | Nick Warila (@NWarila)                                                      |
 | Decision-makers  | Nick Warila (sole portfolio maintainer)                                     |
 | Consulted        | Independent audits.                                                         |
@@ -18,12 +18,12 @@
 
 ## TL;DR
 
-The alerts cover the calls that actually change authorisation, including managed-policy versions.
-Deploy pipelines are exempt from the security-group alert only, named by exact role name or by a
-`*` pattern that follows the fleet's naming convention, and never in a way that can reach the
-roles people sign in through. The message is JSON because EventBridge requires it, and every
-pattern, including the exemption against real role names, is proven against EventBridge before
-an apply.
+The alerts cover the calls that actually change authorisation, including managed-policy versions,
+and the calls that stop or reshape the trail every alert here reads. Deploy pipelines are exempt
+from the security-group alert only, named by exact role name or by a `*` pattern that follows the
+fleet's naming convention, and never in a way that can reach the roles people sign in through.
+The message is JSON because EventBridge requires it, and every pattern, including the exemption
+against real role names, is proven against EventBridge before an apply.
 
 ## Context and Problem Statement
 
@@ -46,6 +46,10 @@ string has its internal quotes stripped, so the request detail would have arrive
 if the template had been accepted.
 
 **Region.** Security-group events are recorded in the region of the call. One region is watched.
+
+**The trail itself.** Every alert here reads one CloudTrail trail. Stopping it, deleting it, or
+narrowing what it records silences all of them at once, with no email, because the rules that
+would have emailed depend on the thing that was stopped.
 
 **Keeping the exemption current.** An exact list of pipeline roles falls behind silently: each
 pipeline added to the fleet alerts on every run until someone remembers to add its role. A
@@ -78,6 +82,16 @@ Chosen option: **Option 4.**
 - **Alert on the calls that change authorisation.** The IAM alert covers role calls, managed
   policy and policy-version calls, `AcquireRole`, and instance-profile attachment. The
   security-group alert covers the eleven EC2 write calls, including both VPC association calls.
+- **Alert when the trail is stopped or changed** (2026-09-24). A third alert matches
+  `StopLogging`, `DeleteTrail`, `UpdateTrail` and `PutEventSelectors`, and nobody is exempt from
+  it. AWS's Well-Architected guidance names watching `cloudtrail:StopLogging` through EventBridge
+  as the control for a disabled trail, and states that a stopped trail's final digest can cover
+  events up to and including the `StopLogging` call. The alert has a limit: CloudTrail accepts
+  those four calls only in a trail's home region, so a multi-region trail homed elsewhere can be
+  stopped without an email, and an organization trail's calls are recorded in the management
+  account, where a member account's rule never sees them. The deployment guide has the operator
+  confirm the trail's home region and that it is not an organization trail, and the threat model
+  carries the residual.
 - **Exempt the deploy pipelines from the security-group alert, and nothing else.**
   `exempt_pipeline_roles` takes exact role names or patterns using `*`, matched with
   EventBridge's `anything-but` wildcard; an entry without `*` still matches exactly, and the
@@ -105,6 +119,9 @@ Chosen option: **Option 4.**
 Until 2026-09-21 the exemption bullet read: "The exemption is a list of role names. It never
 applies to IAM." Entries were matched exactly with `anything-but`, and there was no sign-in-role
 guard or real-role proof.
+
+Until 2026-09-24 the alerts covered security groups and IAM only; the trail they read was proven
+to exist and to log, and its stopping went unreported.
 
 ## Pros and Cons of the Options
 
@@ -137,8 +154,9 @@ guard or real-role proof.
 
 ## Confirmation
 
-1. `terraform/tests/alerts.tftest.hcl` asserts both exact call lists, that the exemption still
-   matches an identity with no session, and that an empty list adds no exemption clause.
+1. `terraform/tests/alerts.tftest.hcl` asserts all three exact call lists, that the exemption
+   still matches an identity with no session, that neither the IAM nor the CloudTrail alert
+   carries one, and that an empty list adds no exemption clause.
 2. `terraform/tests/validation.tftest.hcl` accepts a pattern and rejects an ARN, a duplicate, an
    all-wildcard or leading-wildcard pattern, patterns that reach `AWSReservedSSO_`, and `**`.
 3. `tools/check_event_patterns.sh` tests every planned pattern against EventBridge with the
@@ -152,6 +170,8 @@ guard or real-role proof.
 
 - An email means a person or an unexpected principal changed something.
 - Policy-version and role-template changes alert, closing the quietest routes to wider access.
+- Stopping or narrowing the trail, the one act that silences every other alert, is itself
+  emailed.
 - New pipelines inherit the exemption by following the naming convention.
 
 ### Negative
@@ -215,3 +235,4 @@ keeps the exempt events.
 | 2026-09-21 | Exemption changed from an exact role list to exact names or `*` patterns (PR #4); prior text kept under Previous decisions. | An exact list silently falls behind a growing fleet of pipelines. | Portfolio maintainer | Yes |
 | 2026-09-22 | Added the sign-in-role guard and the real-role proof (PR #5). | A pattern could reach sign-in roles, and a pattern proven against itself proved nothing. | Portfolio maintainer | Yes |
 | 2026-09-22 | Restructured to the org ADR schema; removed one deployment's measurements from the context; the region decision now speaks of a deployment's account rather than the estate, with its substance unchanged. | Bring the record to the required schema and keep it environment-neutral. | Portfolio maintainer | Yes |
+| 2026-09-24 | Added the CloudTrail alert on `StopLogging`, `DeleteTrail`, `UpdateTrail` and `PutEventSelectors`, never exempt, with its home-region limit; prior scope kept under Previous decisions. | Stopping the trail silenced every alert with no email. | Portfolio maintainer | Yes |

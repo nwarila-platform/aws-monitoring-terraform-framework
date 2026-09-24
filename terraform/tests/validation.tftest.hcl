@@ -342,6 +342,26 @@ run "accepts_a_supplied_key_alias" {
   }
 }
 
+# KMS accepts an alias name of up to 250 characters after the prefix; the boundary is checked from
+# both sides so the validation neither refuses a legal name nor admits an illegal one.
+run "accepts_a_key_alias_of_250_characters" {
+  command = plan
+
+  variables {
+    alert_key_alias = join("", [for index in range(250) : "a"])
+  }
+}
+
+run "rejects_a_key_alias_of_251_characters" {
+  command = plan
+
+  variables {
+    alert_key_alias = join("", [for index in range(251) : "a"])
+  }
+
+  expect_failures = [var.alert_key_alias]
+}
+
 run "rejects_a_key_alias_carrying_its_prefix" {
   command = plan
 

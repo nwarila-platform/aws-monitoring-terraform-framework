@@ -2,8 +2,10 @@
 
 PRs to `main` must pass:
 
-- `CI` (`make ci`: Terraform fmt/init/validate/test, TFLint, terraform-docs diff, Diataxis docs
-  layout, and the bidirectional deny-all `.gitignore` allowlist guard)
+- `CI` (`make ci`: Terraform fmt/init/validate/test, the offline trail-gate proof
+  (`trail-check`), the region-and-partition tripwire (`portability-check`), TFLint,
+  terraform-docs diff, Diataxis docs layout, and the bidirectional deny-all `.gitignore`
+  allowlist guard)
 - `Security` (the local `security.yaml` caller, which delegates to the namespace-local
   `nwarila-platform/.github` CodeQL, IaC/security, and Scorecard reusables per org ADR-0005)
 - `Workflow containers` (`template-drift / run / check` for the pinned org and

@@ -7,8 +7,8 @@
 | Status           | Accepted                                                                    |
 | Decision-subject | Whether this framework creates the CloudTrail trail its alerts depend on.   |
 | Date accepted    | 2026-09-16                                                                  |
-| Date             | 2026-09-22                                                                  |
-| Last reviewed    | 2026-09-22                                                                  |
+| Date             | 2026-09-24                                                                  |
+| Last reviewed    | 2026-09-24                                                                  |
 | Authors          | Nick Warila (@NWarila)                                                      |
 | Decision-makers  | Nick Warila (sole portfolio maintainer)                                     |
 | Consulted        | Independent audits.                                                         |
@@ -97,9 +97,11 @@ in."
 
 ## Confirmation
 
-1. `terraform/tests/trail.tftest.hcl` asserts the trail records what both alerts need, the bucket
-   is closed and expires its logs, the bucket policy admits only this trail, and no trail is
-   created when `manage_trail` is false.
+1. `terraform/tests/trail.tftest.hcl` asserts the trail records what every alert needs, logs,
+   is this account's own, and selects management events through one advanced selector; that the
+   bucket is closed, refuses every caller not on TLS, and expires its logs; that the bucket
+   policy's Allow statements admit only this trail; and that no trail is created when
+   `manage_trail` is false.
 2. `terraform/tests/portability.tftest.hcl` asserts omitted values fall to the safe defaults.
 3. `tools/check_cloudtrail.sh --plan` runs before the apply and again, without `--plan`, after it,
    as the runner protocol requires; `tools/test_check_cloudtrail.sh` covers its selector
@@ -171,3 +173,4 @@ data events.
 | 2026-09-16 | Accepted.                                                  | ADR-0001's premise that a trail always exists did not hold. | Portfolio maintainer | Yes     |
 | 2026-09-21 | `manage_trail` defaults to false instead of having no default (PR #3); prior text kept under Previous decisions. | Omitting the setting must never create a billable second trail. | Portfolio maintainer | Yes |
 | 2026-09-22 | Restructured to the org ADR schema; replaced "supersedes" with "revises"; removed one deployment's inspection and pricing figure. | Bring the record to the required schema and keep it environment-neutral; supersession is for a whole different-subject record. | Portfolio maintainer | Yes |
+| 2026-09-24 | Confirmation now names the three alerts, the explicit selector, and the bucket's TLS deny. | The trail's selector and transport rule became explicit, and a third alert reads the trail. | Portfolio maintainer | Yes |

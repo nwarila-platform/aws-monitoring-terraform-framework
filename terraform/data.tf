@@ -66,7 +66,7 @@ data "aws_kms_key" "us_east_1_alert" {
 
     postcondition {
       condition     = self.key_state == "Enabled"
-      error_message = "alert_key_alias names a key in state ${self.key_state}; only an Enabled key can encrypt the alert topics."
+      error_message = "alert_key_alias names a key in state ${self.key_state}; only an Enabled key can encrypt the alert topic."
     }
   }
 

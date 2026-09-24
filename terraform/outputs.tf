@@ -6,8 +6,8 @@
 
 output "alert_key" {
   description = <<-EOT
-    The key encrypting both topics, and whether this framework owns it. A supplied key's rotation
-    and policy belong to whoever owns it; this deployment only uses it.
+    The key encrypting the alert topic, and whether this framework owns it. A supplied key's
+    rotation and policy belong to whoever owns it; this deployment only uses it.
   EOT
   value = {
     arn               = local.alert_key_arn
@@ -33,8 +33,11 @@ output "alert_topic_arn" {
 output "alert_subscriptions" {
   description = <<-EOT
     Email subscriptions keyed by address. pending_confirmation stays true until the recipient
-    follows the link SNS emailed them; an address that is still pending receives nothing.
+    follows the link SNS emailed them; an address that is still pending receives nothing. The
+    addresses are the recipient list, so the output is sensitive and the apply summary redacts
+    it; a changing subscription's resource address still names one, which a runner masks.
   EOT
+  sensitive   = true
   value = {
     for email, subscription in aws_sns_topic_subscription.us_east_1 : email => {
       arn                  = subscription.arn
@@ -66,8 +69,8 @@ output "alert_rules" {
 
 output "health_topic_arn" {
   description = <<-EOT
-    ARN of the topic that reports on the alert channel itself. Separate from the alert topic on
-    purpose: an alarm about a broken alert topic cannot be delivered by that topic.
+    ARN of the topic that reports on the alert channel itself. Separate from the alert topic and
+    unencrypted on purpose: an alarm about a broken alert topic or key must not depend on either.
   EOT
   value       = aws_sns_topic.us_east_1_health.arn
 }

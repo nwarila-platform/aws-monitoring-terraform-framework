@@ -116,12 +116,12 @@ variable "manage_trail" {
 
 variable "alert_key_alias" {
   description = <<-EOT
-    The alias of an existing KMS key that encrypts the alert and channel-health topics, without
-    the `alias/` prefix. Name a key here when an account creates its keys outside this deployment:
-    the framework then creates no key, no alias and no key policy, and its deploy role needs only
-    kms:DescribeKey on that key. That key's policy must admit events.amazonaws.com and
-    cloudwatch.amazonaws.com, or the alerts deploy and never arrive; see the deployment guide.
-    Leave it null, the default, and the framework creates and owns a key for the channel.
+    The alias of an existing KMS key that encrypts the alert topic, without the `alias/` prefix.
+    Name a key here when an account creates its keys outside this deployment: the framework then
+    creates no key, no alias and no key policy, and its deploy role needs only kms:DescribeKey on
+    that key. That key's policy must admit the deploy role's kms:DescribeKey and
+    events.amazonaws.com, or the alerts deploy and never arrive; see the deployment guide. Leave
+    it null, the default, and the framework creates and owns a key for the channel.
   EOT
   type        = string
   default     = null

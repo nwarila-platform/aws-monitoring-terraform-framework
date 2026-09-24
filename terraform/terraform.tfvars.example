@@ -5,14 +5,15 @@
 # Exactly one of dev, test, or prod (lowercase).
 environment = "dev"
 
-# Who is emailed on every security group and IAM change. Each address must confirm the
-# subscription SNS emails it before anything is delivered. A prod deployment requires at least one.
+# Who is emailed on every security group, IAM and CloudTrail change. Each address must confirm
+# the subscription SNS emails it before anything is delivered. A prod deployment requires at
+# least one.
 alert_emails = ["REPLACE_ME@example.com"]
 
-# Optional; shown with their defaults. The alias of an existing key that encrypts both topics,
-# without the "alias/" prefix. Name one in an account that creates its keys outside this
-# deployment: the framework then creates no key, and that key's policy must admit EventBridge
-# and CloudWatch. Null creates and owns a key for the channel.
+# Optional; shown with their defaults. The alias of an existing key that encrypts the alert
+# topic, without the "alias/" prefix. Name one in an account that creates its keys outside this
+# deployment: the framework then creates no key, and that key's policy must admit the deploy
+# role and EventBridge. Null creates and owns a key for the channel.
 alert_key_alias = null
 
 # Create the CloudTrail trail the alerts depend on only in an account that has no trail: a second
