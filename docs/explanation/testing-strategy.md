@@ -25,8 +25,8 @@ behavior without making AWS API calls.
   every alarm is enabled, reports to the health topic on both transitions, watches its own rule,
   the queue or the alert topic by name, and treats missing data as healthy, that the health topic
   is a second, unencrypted topic carrying the same recipients whose policy admits publishes from
-  those five alarms alone, and that the key keeps admitting CloudWatch for the one release the
-  migration needs.
+  those five alarms alone, and that the key policy names the account root, the deploying role and
+  EventBridge and nothing else.
 - `terraform/tests/trail.tftest.hcl` asserts that a managed trail is this account's own, covers
   every region, logs, validates its files, and selects management events through exactly one
   advanced selector; that its bucket is closed, encrypted, expires its logs and refuses every

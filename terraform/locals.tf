@@ -136,17 +136,6 @@ locals {
         Action    = ["kms:GenerateDataKey*", "kms:Decrypt"]
         Resource  = "*"
       },
-      {
-        # The health topic no longer uses this key, but a deployment converging from a release
-        # where it did rewrites the topic and this policy in one apply with nothing ordering the
-        # two, and the topic decrypts through this statement until its own update lands. Kept for
-        # one release; removed once every deployment has converged.
-        Sid       = "CloudWatchPublishesThroughTheKey"
-        Effect    = "Allow"
-        Principal = { Service = "cloudwatch.amazonaws.com" }
-        Action    = ["kms:GenerateDataKey*", "kms:Decrypt"]
-        Resource  = "*"
-      },
     ]
   })
 

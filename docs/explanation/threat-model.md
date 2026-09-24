@@ -13,9 +13,8 @@ What this module guarantees:
   key it rotates it yearly; where a deployment names an existing key by alias, rotation and the
   key policy belong to that key's owner, and Terraform cannot read a key policy to check it. A
   key policy this module writes admits EventBridge with the two actions the SNS developer guide
-  names, names the deploy role for the calls this configuration makes, keeps the account root as
-  administrator, and, until the release after this one, still admits CloudWatch, which the
-  health topic no longer needs. A supplied key's policy must admit the deploy role's
+  names, names the deploy role for the calls this configuration makes, and keeps the account
+  root as administrator. A supplied key's policy must admit the deploy role's
   `kms:DescribeKey`, which the first plan checks by making that call, and EventBridge, which no
   plan can check and the first delivery test proves. The forced health alarm proves the health
   topic's own policy, not the key.
