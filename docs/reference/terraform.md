@@ -51,7 +51,7 @@ during PRs. Do not edit by hand between the markers below.
 | ---- | ----------- |
 | alert\_key | The key encrypting the alert topic, and whether this framework owns it. A supplied key's<br/>rotation and policy belong to whoever owns it; this deployment only uses it. |
 | alert\_rules | EventBridge rules keyed by change alert, with the exact API calls each one matches. |
-| alert\_subscriptions | Email subscriptions keyed by address. pending\_confirmation stays true until the recipient<br/>follows the link SNS emailed them; an address that is still pending receives nothing. The<br/>addresses are the recipient list, which no apply summary prints. |
+| alert\_subscriptions | Email subscriptions keyed by address. pending\_confirmation stays true until the recipient<br/>follows the link SNS emailed them; an address that is still pending receives nothing. The<br/>addresses are the recipient list, so the output is sensitive and the apply summary redacts<br/>it; a changing subscription's resource address still names one, which a runner masks. |
 | alert\_topic\_arn | ARN of the SNS topic every change alert is published to. |
 | health\_alarms | Names of the alarms watching the alert channel, for confirming they exist after a deploy. |
 | health\_topic\_arn | ARN of the topic that reports on the alert channel itself. Separate from the alert topic and<br/>unencrypted on purpose: an alarm about a broken alert topic or key must not depend on either. |

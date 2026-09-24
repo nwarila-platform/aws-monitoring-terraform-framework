@@ -27,9 +27,8 @@ Non-negotiable rules for this module. Violating one of these is a breaking chang
 - The target input template MUST be valid JSON, and the whole event MUST travel as a JSON value.
   Only paths present on every API-call event may be quoted individually.
 - The supported region is the estate's only region by control, not by convention. The account
-  MUST deny or otherwise prevent resource creation in regions this framework does not watch, or
-  the deployment MUST record the gap as accepted in its own record; without either, a security
-  group created elsewhere produces no alert and nobody has said so.
+  MUST deny or otherwise prevent resource creation in regions this framework does not watch;
+  without that control, a security group created elsewhere produces no alert.
 - Every rule MUST be `ENABLED` on the `default` event bus: CloudTrail delivers there only, and
   the default state is what matches write management events.
 - A key policy this framework writes MUST name the deploying role for key administration, so that

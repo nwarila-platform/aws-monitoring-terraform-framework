@@ -103,9 +103,9 @@ A runner MUST, in this order:
    policy; the subscriptions, compared as the configured addresses rather than as counts; and
    each alarm's metric, dimensions, actions and enabled state.
 
-A healthy converge of an unchanged framework commit updates identity tags only, `CommitSha` and
-`RunId` on every resource, and never replaces a resource. A runner SHOULD state that expected
-recap and treat any other change as a finding.
+A healthy converge of an unchanged framework commit updates identity tags only, `RunId` on every
+resource and `CommitSha` when the runner's own commit changed, and never replaces a resource. A
+runner SHOULD state that expected recap and treat any other change as a finding.
 
 A deploy role whose deployment creates its own key needs `iam:GetRole` on its own ARN: the
 framework asks IAM for the deploying role's real ARN, path included, to name it in the key policy

@@ -34,7 +34,8 @@ output "alert_subscriptions" {
   description = <<-EOT
     Email subscriptions keyed by address. pending_confirmation stays true until the recipient
     follows the link SNS emailed them; an address that is still pending receives nothing. The
-    addresses are the recipient list, which no apply summary prints.
+    addresses are the recipient list, so the output is sensitive and the apply summary redacts
+    it; a changing subscription's resource address still names one, which a runner masks.
   EOT
   sensitive   = true
   value = {
