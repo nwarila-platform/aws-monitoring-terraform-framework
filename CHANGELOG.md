@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/nwarila-platform/aws-monitoring-terraform-framework/compare/v0.1.0...v0.2.0) (2026-09-24)
+
+
+### Features
+
+* **alerts:** encrypt the channel with a key supplied by alias ([#11](https://github.com/nwarila-platform/aws-monitoring-terraform-framework/issues/11)) ([5407135](https://github.com/nwarila-platform/aws-monitoring-terraform-framework/commit/5407135c7747ad1dbb0ab61b0fa013421883f377))
+
 ## 0.1.0 (2026-09-22)
 
 
