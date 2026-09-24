@@ -210,6 +210,9 @@ None (current).
   naming pattern, not by list".
 - nwarila-platform/aws-monitoring-terraform-framework#5, "fix(alerts): prove the exemption with
   real role names, and keep people out of it".
+- nwarila-platform/aws-monitoring-terraform-framework#13, "feat(alerts): email trail changes, and
+  close the whole-project audit": the CloudTrail alert, never exempt, with its
+  fixtures.
 
 ## Related ADRs
 
@@ -236,3 +239,4 @@ keeps the exempt events.
 | 2026-09-22 | Added the sign-in-role guard and the real-role proof (PR #5). | A pattern could reach sign-in roles, and a pattern proven against itself proved nothing. | Portfolio maintainer | Yes |
 | 2026-09-22 | Restructured to the org ADR schema; removed one deployment's measurements from the context; the region decision now speaks of a deployment's account rather than the estate, with its substance unchanged. | Bring the record to the required schema and keep it environment-neutral. | Portfolio maintainer | Yes |
 | 2026-09-24 | Added the CloudTrail alert on `StopLogging`, `DeleteTrail`, `UpdateTrail` and `PutEventSelectors`, never exempt, with its home-region limit; prior scope kept under Previous decisions. | Stopping the trail silenced every alert with no email. | Portfolio maintainer | Yes |
+| 2026-09-24 | Implementing PRs: added #13. | Record the pull request that carried this record's 2026-09-24 edits. | Portfolio maintainer | Yes |

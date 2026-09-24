@@ -148,6 +148,9 @@ None (current).
   permission changes": the trail, its bucket, and the plan-aware trail checks.
 - nwarila-platform/aws-monitoring-terraform-framework#3, "feat: deploy one commit to any account
   by changing providers.tf alone": `manage_trail` defaults to false.
+- nwarila-platform/aws-monitoring-terraform-framework#13, "feat(alerts): email trail changes, and
+  close the whole-project audit": logging, organization scope and the
+  management-event selector stated on the trail, and the bucket's refusal of plain HTTP.
 
 ## Related ADRs
 
@@ -174,3 +177,4 @@ data events.
 | 2026-09-21 | `manage_trail` defaults to false instead of having no default (PR #3); prior text kept under Previous decisions. | Omitting the setting must never create a billable second trail. | Portfolio maintainer | Yes |
 | 2026-09-22 | Restructured to the org ADR schema; replaced "supersedes" with "revises"; removed one deployment's inspection and pricing figure. | Bring the record to the required schema and keep it environment-neutral; supersession is for a whole different-subject record. | Portfolio maintainer | Yes |
 | 2026-09-24 | Confirmation now names the three alerts, the explicit selector, and the bucket's TLS deny. | The trail's selector and transport rule became explicit, and a third alert reads the trail. | Portfolio maintainer | Yes |
+| 2026-09-24 | Implementing PRs: added #13. | Record the pull request that carried this record's 2026-09-24 edits. | Portfolio maintainer | Yes |
