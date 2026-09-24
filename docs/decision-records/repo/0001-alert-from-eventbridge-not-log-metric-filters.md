@@ -165,6 +165,9 @@ None (current).
 - nwarila-platform/aws-monitoring-terraform-framework#3, "feat: deploy one commit to any account
   by changing providers.tf alone": the key, topic and rule ARNs take their partition and region
   from the provider.
+- nwarila-platform/aws-monitoring-terraform-framework#13, "feat(alerts): email trail changes, and
+  close the whole-project audit": the third rule, for trail changes, and the channel's own health
+  resources named in the resource set.
 
 ## Related ADRs
 
@@ -191,3 +194,4 @@ This decision chooses an alerting mechanism; it is not a claim of compliance.
 | 2026-09-22 | Recorded that ADR-0003 revised the "do not manage the trail" premise; prior text kept under Previous decisions. | The premise that every account already has a trail did not hold. | Portfolio maintainer | Yes |
 | 2026-09-22 | Recorded that ADR-0002 replaced "alert on every principal"; prior text kept under Previous decisions. | Pipelines are exempt from the security-group alert.     | Portfolio maintainer | Yes        |
 | 2026-09-24 | Decision-subject and resource set now include the CloudTrail alert, the health topic, the queue and the alarms; prior text kept under Previous decisions. | The record described fewer resources than the framework declares. | Portfolio maintainer | Yes |
+| 2026-09-24 | Implementing PRs: added #13. | Record the pull request that carried this record's 2026-09-24 edits. | Portfolio maintainer | Yes |
