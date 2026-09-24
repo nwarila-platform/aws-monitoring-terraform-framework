@@ -15,8 +15,8 @@ runs only `init`, `plan`, and `apply` cannot make these checks, so a person make
 3. **Decide where the key comes from.** An account that creates keys outside this pipeline names
    an existing one: set `alert_key_alias` to its alias, without the `alias/` prefix, and the
    framework creates no key, no alias and no key policy. That key must be customer managed,
-   symmetric and enabled, which the plan checks, and its **policy** must carry two things, which
-   no plan can check:
+   symmetric and enabled, which the plan checks, and its **policy** must carry two things that no
+   plan can read; the first shows itself at the first plan, the second only at delivery:
 
    - authorization for this deploy role's `kms:DescribeKey`, either naming the role or through the
      statement that delegates to the account's IAM policies. Without it the first plan fails at
@@ -62,8 +62,10 @@ runs only `init`, `plan`, and `apply` cannot make these checks, so a person make
      silently, so read `aws cloudtrail describe-trails --region <region>` for those. Fix that
      trail rather than adding a second one, which is billed for every management event both copies
      record.
-6. **Write the value file.** Set `environment` and at least one address in `alert_emails`. Leave
-   `exempt_pipeline_roles` unset, so every change alerts.
+6. **Write the value file.** Set `environment` and at least one address in `alert_emails`, or,
+   where the runner repository is public, leave `alert_emails` out of the file and pass the
+   addresses as a command-line `-var` from a secret, so that no recipient enters a public history.
+   Leave `exempt_pipeline_roles` unset, so every change alerts.
 
 ## After the first apply
 

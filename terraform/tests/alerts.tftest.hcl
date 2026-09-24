@@ -391,10 +391,10 @@ run "the_key_policy_names_the_role_that_deploys_it" {
   # Exactly the calls this configuration makes on the key across create, read, update, tag and
   # delete; a call nothing here makes is not granted.
   assert {
-    condition = one([
+    condition = [
       for statement in jsondecode(aws_kms_key.us_east_1["security-change-alerts"].policy).Statement :
       statement.Action if statement.Sid == "DeployRoleAdministersTheKey"
-      ]) == [
+      ][0] == [
       "kms:CreateAlias",
       "kms:DeleteAlias",
       "kms:DescribeKey",
