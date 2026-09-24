@@ -43,8 +43,10 @@ The module declares:
 
 ## Inputs And Locals
 
-Consumers set `environment`, `alert_emails`, `alert_key_alias`, `manage_trail` and
-`exempt_pipeline_roles` in the committed `terraform.tfvars`; the deploy workflow supplies the
+Consumers set `environment`, `alert_key_alias`, `manage_trail` and `exempt_pipeline_roles` in
+the committed `terraform.tfvars`. `alert_emails` goes there too where the runner repository is
+private; a public runner keeps the recipients out of its history and passes them as a
+command-line `-var` from a secret, as the reference runner does. The deploy workflow supplies the
 four identity variables on the command line. The alerts themselves are framework-owned:
 `local.change_alerts` in `locals.tf` names each alert's CloudTrail source and the exact write
 calls that count. Adding an alert is adding an entry there, asserting its call list in

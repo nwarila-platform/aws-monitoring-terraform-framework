@@ -20,9 +20,11 @@ key, and region. Backend encryption and S3-native locking are invariants declare
 
 ## Terraform Inputs
 
-A runner supplies `environment`, `alert_emails`, `alert_key_alias`, `manage_trail`, and
-`exempt_pipeline_roles` from its own value file, copied into the framework checkout or passed with
-`-var-file`. Start from `terraform/terraform.tfvars.example`.
+A runner supplies `environment`, `alert_key_alias`, `manage_trail`, and `exempt_pipeline_roles`
+from its own value file, copied into the framework checkout or passed with `-var-file`, and
+`alert_emails` either there or, where the runner repository is public, as a command-line `-var`
+read from a secret, so that no recipient enters a public history. Start from
+`terraform/terraform.tfvars.example`.
 
 ## One Value File per Environment
 
@@ -31,7 +33,8 @@ the same for all of them; what differs is:
 
 | Setting | Where it lives |
 | --- | --- |
-| `environment`, `alert_emails`, `alert_key_alias`, `manage_trail`, `exempt_pipeline_roles` | The environment's value file |
+| `environment`, `alert_key_alias`, `manage_trail`, `exempt_pipeline_roles` | The environment's value file |
+| `alert_emails` | The environment's value file, or a secret passed as a command-line `-var` when the runner repository is public |
 | Backend bucket, key, and region | The environment's backend configuration |
 | Region and credentials | `terraform/providers.tf`, the only file that chooses a region |
 | `repository`, `repository_id`, `commit_sha`, `run_id` | The pipeline, as command-line `-var` |

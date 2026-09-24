@@ -15,9 +15,10 @@ What this module guarantees:
   key policy this module writes admits EventBridge with the two actions the SNS developer guide
   names, names the deploy role for the calls this configuration makes, keeps the account root as
   administrator, and, until the release after this one, still admits CloudWatch, which the
-  health topic no longer needs. A supplied key's policy admitting EventBridge and the deploy
-  role is a deployment prerequisite no plan can check, proven instead by the first delivery
-  test. The forced health alarm proves the health topic's own policy, not the key.
+  health topic no longer needs. A supplied key's policy must admit the deploy role's
+  `kms:DescribeKey`, which the first plan checks by making that call, and EventBridge, which no
+  plan can check and the first delivery test proves. The forced health alarm proves the health
+  topic's own policy, not the key.
 - The health topic is not encrypted. A broken key policy is one of the failures it reports, and
   the report must not depend on the key; what it carries is an alarm's name and state. Its
   policy admits publishes from this deployment's own alarms, by ARN, and nothing else.
