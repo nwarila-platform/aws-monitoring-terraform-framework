@@ -62,8 +62,32 @@ locals {
   notification_failures_alarm_name = "${local.alert_name}-notification-failures"
   notification_failures_alarm_tags = merge(local.identity_tags, { Name = local.notification_failures_alarm_name })
 
-  # The role deploying this framework, path and partition included.
-  deploy_principal_arn = data.aws_iam_session_context.current.issuer_arn
+  # Which key encrypts the channel. A deployment that names an alias adopts that key and the
+  # framework creates none; one that names nothing gets a key of its own. Each set holds one name
+  # or none, and nothing in them reads the instances they key.
+  framework_key_names  = var.alert_key_alias == null ? toset([local.alert_name]) : toset([])
+  supplied_key_aliases = var.alert_key_alias == null ? toset([]) : toset([var.alert_key_alias])
+
+  # The topics take the key's own identifier. The lookup's key_id is the alias that was passed to
+  # it, which would leave a topic pointing at whatever the alias is retargeted to later.
+  alert_key_id = (
+    var.alert_key_alias == null
+    ? aws_kms_key.us_east_1[local.alert_name].key_id
+    : data.aws_kms_key.us_east_1_alert[var.alert_key_alias].id
+  )
+  alert_key_arn = (
+    var.alert_key_alias == null
+    ? aws_kms_key.us_east_1[local.alert_name].arn
+    : data.aws_kms_key.us_east_1_alert[var.alert_key_alias].arn
+  )
+
+  # The role deploying this framework, path and partition included. Read only where the framework
+  # writes a key policy that must name it.
+  deploy_principal_arn = (
+    var.alert_key_alias == null
+    ? data.aws_iam_session_context.current[local.alert_name].issuer_arn
+    : null
+  )
 
   # EventBridge publishes through the topic's key, so the key policy must admit it. The SNS
   # developer guide's statement for event sources is reproduced exactly: kms:GenerateDataKey* and

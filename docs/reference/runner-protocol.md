@@ -20,9 +20,9 @@ key, and region. Backend encryption and S3-native locking are invariants declare
 
 ## Terraform Inputs
 
-A runner supplies `environment`, `alert_emails`, `manage_trail`, and `exempt_pipeline_roles` from
-its own value file, copied into the framework checkout or passed with `-var-file`. Start from
-`terraform/terraform.tfvars.example`.
+A runner supplies `environment`, `alert_emails`, `alert_key_alias`, `manage_trail`, and
+`exempt_pipeline_roles` from its own value file, copied into the framework checkout or passed with
+`-var-file`. Start from `terraform/terraform.tfvars.example`.
 
 ## One Value File per Environment
 
@@ -31,13 +31,14 @@ the same for all of them; what differs is:
 
 | Setting | Where it lives |
 | --- | --- |
-| `environment`, `alert_emails`, `manage_trail`, `exempt_pipeline_roles` | The environment's value file |
+| `environment`, `alert_emails`, `alert_key_alias`, `manage_trail`, `exempt_pipeline_roles` | The environment's value file |
 | Backend bucket, key, and region | The environment's backend configuration |
 | Region and credentials | `terraform/providers.tf`, the only file that chooses a region |
 | `repository`, `repository_id`, `commit_sha`, `run_id` | The pipeline, as command-line `-var` |
 
-`manage_trail` and `exempt_pipeline_roles` have safe defaults: no trail is created and nobody is
-exempt. `environment` and `alert_emails` have none and must be set.
+`alert_key_alias`, `manage_trail` and `exempt_pipeline_roles` have safe defaults: the framework
+creates its own key, no trail is created, and nobody is exempt. `environment` and `alert_emails`
+have none and must be set.
 
 ## Terraform-Only Pipelines
 
@@ -94,9 +95,10 @@ A runner MUST, in this order:
 8. read the rules, targets, topics, subscriptions, and alarms back from AWS and fail on any
    mismatch.
 
-Every deploy role, in every environment, needs `iam:GetRole` on its own ARN: the framework asks
-IAM for the deploying role's real ARN, path included, to name it in the KMS key policy, and a plan
-fails without that permission. A pipeline that runs the proof scripts also needs
+A deploy role whose deployment creates its own key needs `iam:GetRole` on its own ARN: the
+framework asks IAM for the deploying role's real ARN, path included, to name it in the key policy
+it writes, and a plan fails without that permission. A deployment that supplies a key by alias
+writes no key policy, so it makes no such call. A pipeline that runs the proof scripts also needs
 `events:TestEventPattern` and the CloudTrail read calls they make: `ListTrails`, `DescribeTrails`,
 `GetTrailStatus`, and `GetEventSelectors`.
 
@@ -118,10 +120,11 @@ resource: `security-change-alerts` and the names that begin with it, the trail
 | EventBridge | `PutRule`, `DeleteRule`, `DescribeRule`, `PutTargets`, `RemoveTargets`, `ListTargetsByRule`, `TagResource`, `UntagResource`, `ListTagsForResource` | rules named `security-change-alerts-*` |
 | SNS | `CreateTopic`, `DeleteTopic`, `GetTopicAttributes`, `SetTopicAttributes`, `Subscribe`, `Unsubscribe`, `GetSubscriptionAttributes`, `SetSubscriptionAttributes`, `TagResource`, `UntagResource`, `ListTagsForResource`; `ListSubscriptionsByTopic` for a read-back that lists them | the topics `security-change-alerts` and `security-change-alerts-health`; subscription calls are granted on the topic ARN |
 | SQS | `CreateQueue`, `DeleteQueue`, `GetQueueAttributes`, `SetQueueAttributes`, `TagQueue`, `UntagQueue`, `ListQueueTags` | the queue `security-change-alerts-dlq` |
-| KMS | `CreateKey`, `DescribeKey`, `GetKeyPolicy`, `PutKeyPolicy`, `GetKeyRotationStatus`, `EnableKeyRotation`, `EnableKey`, `UpdateKeyDescription`, `ListResourceTags`, `TagResource`, `UntagResource`, `ScheduleKeyDeletion` | `CreateKey` on `*` conditioned on the request tag; the rest on keys carrying the tag |
-| KMS aliases | `CreateAlias`, `UpdateAlias`, `DeleteAlias` on the alias and the tagged key; `ListAliases` on `*` | `alias/security-change-alerts` |
+| KMS, only when the framework creates the key | `CreateKey`, `DescribeKey`, `GetKeyPolicy`, `PutKeyPolicy`, `GetKeyRotationStatus`, `EnableKeyRotation`, `EnableKey`, `UpdateKeyDescription`, `ListResourceTags`, `TagResource`, `UntagResource`, `ScheduleKeyDeletion` | `CreateKey` on `*` conditioned on the request tag; the rest on keys carrying the tag |
+| KMS aliases, only when the framework creates the key | `CreateAlias`, `UpdateAlias`, `DeleteAlias` on the alias and the tagged key; `ListAliases` on `*` | `alias/security-change-alerts` |
+| KMS, only when a key is supplied by alias | `DescribeKey` | the supplied key. Its policy must also authorize this role for that call, or the grant is inert |
 | CloudWatch | `PutMetricAlarm`, `DeleteAlarms`, `TagResource`, `UntagResource`, `ListTagsForResource`; `DescribeAlarms` on `*` | alarms named `security-change-alerts-*` |
-| IAM | `GetRole` | the deploy role itself |
+| IAM, only when the framework creates the key | `GetRole` | the deploy role itself |
 | S3, state | `GetObject`, `PutObject`, `DeleteObject`; `ListBucket` | the state object and its `.tflock`; the state prefix |
 | CloudTrail, only with `manage_trail = true` | `CreateTrail`, `AddTags`, `RemoveTags`, `ListTags`, `UpdateTrail`, `DeleteTrail`, `StartLogging`, `StopLogging`, `PutEventSelectors`, `GetTrailStatus`, `GetEventSelectors` on the trail; `DescribeTrails`, which takes no resource | the trail `management-events`; `DescribeTrails` on `*` |
 | S3, only with `manage_trail = true` | `CreateBucket`, `ListBucket`, `GetBucketAcl`, `GetBucketCORS`, `GetBucketWebsite`, `GetBucketVersioning`, `GetAccelerateConfiguration`, `GetBucketRequestPayment`, `GetBucketLogging`, `GetLifecycleConfiguration`, `GetReplicationConfiguration`, `GetEncryptionConfiguration`, `GetBucketObjectLockConfiguration`, `GetBucketTagging`, `GetBucketOwnershipControls`, `GetBucketPublicAccessBlock`, `GetBucketPolicy`, `PutBucketTagging`, `PutBucketOwnershipControls`, `PutBucketPublicAccessBlock`, `PutEncryptionConfiguration`, `PutLifecycleConfiguration`, `PutBucketPolicy`, `DeleteBucketPolicy`, `TagResource`, `UntagResource`, `ListTagsForResource` | the bucket `<account-id>-cloudtrail` |
@@ -136,9 +139,12 @@ Four details decide whether a first apply succeeds:
 - **Tag on create.** Where a grant is conditioned on the resource tag, the tagging call
   (`TagResource`, `TagQueue`, `AddTags`) must also be granted under the request-tag condition,
   because the tags arrive in the create request, before any resource tag exists.
-- **The key policy names the deploy role.** KMS refuses to create a key whose policy would lock
-  its creator out, so the module names the deploying role as an administrator of the key; that is
-  why the role needs `iam:GetRole` on itself.
+- **The key policy names the deploy role**, when the framework writes one. KMS refuses to create
+  a key whose policy would lock its creator out, so the module names the deploying role as an
+  administrator of the key; that is why that role needs `iam:GetRole` on itself. A supplied key
+  needs the opposite care: its policy is written by its owner, and must authorize this deploy
+  role's `kms:DescribeKey`, or the IAM grant below is inert and the first plan fails at the
+  lookup.
 - **Creating a trail reads it back.** Terraform finishes `CreateTrail` by reading the trail, which
   calls `DescribeTrails` and `GetTrailStatus` every time. A role that can create a trail but not
   read it leaves a created trail outside state and a failed apply.

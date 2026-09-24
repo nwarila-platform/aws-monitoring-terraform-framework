@@ -7,7 +7,9 @@
 
 resource "aws_kms_key" "us_east_1" {
 
+  # Iterate through the framework-owned Alert Topic Key in the provider's region.
   provider = aws.us_east_1
+  for_each = local.framework_key_names
 
   # Define the Alert Topic Key Properties
   deletion_window_in_days = 30
@@ -29,11 +31,13 @@ resource "aws_kms_key" "us_east_1" {
 
 resource "aws_kms_alias" "us_east_1" {
 
+  # Iterate through the framework-owned Alert Topic Key in the provider's region.
   provider = aws.us_east_1
+  for_each = local.framework_key_names
 
   # Define the Alert Topic Key Alias Properties
-  name          = "alias/${local.alert_name}"
-  target_key_id = aws_kms_key.us_east_1.key_id
+  name          = "alias/${each.key}"
+  target_key_id = aws_kms_key.us_east_1[each.key].key_id
 
 }
 
@@ -54,7 +58,7 @@ resource "aws_sns_topic" "us_east_1" {
   # EventBridge sets no per-message subject, so every email arrives under SNS's fixed subject and
   # the headline is the body's first line.
   display_name      = "AWS security change alerts"
-  kms_master_key_id = aws_kms_key.us_east_1.key_id
+  kms_master_key_id = local.alert_key_id
   name              = local.alert_name
   tags              = local.alert_tags
 
@@ -117,7 +121,7 @@ resource "aws_sns_topic" "us_east_1_health" {
 
   # Define the Health Topic Properties
   display_name      = "AWS security alert channel health"
-  kms_master_key_id = aws_kms_key.us_east_1.key_id
+  kms_master_key_id = local.alert_key_id
   name              = local.health_name
   tags              = local.health_tags
 
@@ -634,6 +638,17 @@ moved {
 moved {
   from = aws_cloudtrail.us_east_1[0]
   to   = aws_cloudtrail.us_east_1["management-events"]
+}
+
+# The key and its alias were singular before a deployment could supply its own key.
+moved {
+  from = aws_kms_key.us_east_1
+  to   = aws_kms_key.us_east_1["security-change-alerts"]
+}
+
+moved {
+  from = aws_kms_alias.us_east_1
+  to   = aws_kms_alias.us_east_1["security-change-alerts"]
 }
 
 #endregion --- [ moved ] ----------------------------------------------------------------------- #

@@ -52,6 +52,7 @@ variables {
   alert_emails          = []
   exempt_pipeline_roles = []
   manage_trail          = true
+  alert_key_alias       = null
 }
 
 # EventBridge receives no CloudTrail events at all without a logging trail, so an account that

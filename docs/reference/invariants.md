@@ -31,13 +31,14 @@ Non-negotiable rules for this module. Violating one of these is a breaking chang
   without that control, a security group created elsewhere produces no alert.
 - Every rule MUST be `ENABLED` on the `default` event bus: CloudTrail delivers there only, and
   the default state is what matches write management events.
-- The key policy MUST name the deploying role for key administration, so that KMS's lockout safety
-  check on `CreateKey` never depends on a tag the key cannot yet carry. The role MUST be named as
-  IAM reports it through `aws_iam_session_context`, never rebuilt from the session ARN, which
-  drops the role's path.
-- The topic MUST be encrypted with a key this module owns, with yearly rotation enabled, and the
-  key policy MUST carry the SNS developer guide's statement for event sources verbatim: the two
-  actions to `events.amazonaws.com` with no source condition.
+- A key policy this framework writes MUST name the deploying role for key administration, so that
+  KMS's lockout safety check on `CreateKey` never depends on a tag the key cannot yet carry. The
+  role MUST be named as IAM reports it through `aws_iam_session_context`, never rebuilt from the
+  session ARN, which drops the role's path.
+- The topic MUST be encrypted with a customer managed key: one this module owns, with yearly
+  rotation enabled, or one named by alias whose owner is then responsible for its rotation and
+  policy. The key policy MUST carry the SNS developer guide's statement for event sources
+  verbatim: the two actions to `events.amazonaws.com` with no source condition.
 - The topic policy MUST admit `sns:Publish` from `events.amazonaws.com` and no other principal.
 - Recipients MUST be email subscriptions created pending; nothing in this module MAY confirm one.
 - Every target MUST have a dead-letter queue, and that queue MUST accept messages only from this

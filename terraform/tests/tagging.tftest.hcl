@@ -40,6 +40,7 @@ variables {
   manage_trail          = false
   exempt_pipeline_roles = []
   alert_emails          = []
+  alert_key_alias       = null
 }
 
 # What provider default_tags carries, pinned as an exact key set. These six are the only keys
@@ -67,7 +68,7 @@ run "every_taggable_resource_carries_identity_and_its_name" {
 
   assert {
     condition = alltrue([
-      aws_kms_key.us_east_1.tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts" })),
+      aws_kms_key.us_east_1["security-change-alerts"].tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts" })),
       aws_sns_topic.us_east_1.tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts" })),
       aws_cloudwatch_event_rule.us_east_1["iam"].tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts-iam" })),
       aws_cloudwatch_event_rule.us_east_1["security-group"].tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts-security-group" })),

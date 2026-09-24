@@ -25,6 +25,18 @@ mock_provider "aws" {
     }
   }
 
+  # A key someone else owns, resolved from its alias. The id is the key's own identifier, distinct
+  # from the ARN and from the alias that was looked up; the spec and state are what the lookup's
+  # postconditions read, and a mock provider invents unrelated strings for anything left out.
+  mock_data "aws_kms_key" {
+    defaults = {
+      id        = "12345678-1234-1234-1234-123456789012"
+      arn       = "arn:aws:kms:us-east-1:${join("", ["123456", "789012"])}:key/12345678-1234-1234-1234-123456789012"
+      key_spec  = "SYMMETRIC_DEFAULT"
+      key_state = "Enabled"
+    }
+  }
+
   mock_data "aws_caller_identity" {
     defaults = {
       account_id = join("", ["123456", "789012"])
@@ -58,6 +70,7 @@ variables {
   manage_trail          = false
   alert_emails          = ["security@example.com", "oncall@example.com"]
   exempt_pipeline_roles = ["example-pipeline-role"]
+  alert_key_alias       = null
 }
 
 # The rule IS the alert. Every write call that counts is named here, as an exact list, so a
@@ -268,12 +281,12 @@ run "every_rule_publishes_to_the_one_encrypted_topic" {
   }
 
   assert {
-    condition     = aws_sns_topic.us_east_1.kms_master_key_id == aws_kms_key.us_east_1.key_id
+    condition     = aws_sns_topic.us_east_1.kms_master_key_id == aws_kms_key.us_east_1["security-change-alerts"].key_id
     error_message = "The topic must be encrypted with the framework's own key."
   }
 
   assert {
-    condition     = aws_kms_alias.us_east_1.target_key_id == aws_kms_key.us_east_1.key_id
+    condition     = aws_kms_alias.us_east_1["security-change-alerts"].target_key_id == aws_kms_key.us_east_1["security-change-alerts"].key_id
     error_message = "The alias must point at the framework's own key."
   }
 }
@@ -285,7 +298,7 @@ run "the_key_admits_eventbridge_and_stays_administrable" {
   command = plan
 
   assert {
-    condition = contains(jsondecode(aws_kms_key.us_east_1.policy).Statement, {
+    condition = contains(jsondecode(aws_kms_key.us_east_1["security-change-alerts"].policy).Statement, {
       Sid       = "EventBridgePublishesThroughTheKey"
       Effect    = "Allow"
       Principal = { Service = "events.amazonaws.com" }
@@ -296,7 +309,7 @@ run "the_key_admits_eventbridge_and_stays_administrable" {
   }
 
   assert {
-    condition = contains(jsondecode(aws_kms_key.us_east_1.policy).Statement, {
+    condition = contains(jsondecode(aws_kms_key.us_east_1["security-change-alerts"].policy).Statement, {
       Sid       = "AccountAdministersTheKey"
       Effect    = "Allow"
       Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
@@ -308,9 +321,9 @@ run "the_key_admits_eventbridge_and_stays_administrable" {
 
   assert {
     condition = alltrue([
-      aws_kms_key.us_east_1.enable_key_rotation == true,
-      aws_kms_key.us_east_1.deletion_window_in_days == 30,
-      aws_kms_alias.us_east_1.name == "alias/security-change-alerts",
+      aws_kms_key.us_east_1["security-change-alerts"].enable_key_rotation == true,
+      aws_kms_key.us_east_1["security-change-alerts"].deletion_window_in_days == 30,
+      aws_kms_alias.us_east_1["security-change-alerts"].name == "alias/security-change-alerts",
     ])
     error_message = "The key rotates yearly, waits the full 30 days before deletion, and is aliased as security-change-alerts."
   }
@@ -324,7 +337,7 @@ run "the_key_policy_names_the_role_that_deploys_it" {
 
   assert {
     condition = alltrue([
-      for statement in jsondecode(aws_kms_key.us_east_1.policy).Statement : alltrue([
+      for statement in jsondecode(aws_kms_key.us_east_1["security-change-alerts"].policy).Statement : alltrue([
         statement.Principal.AWS == "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/example-deploy-role",
         contains(statement.Action, "kms:PutKeyPolicy"),
       ])
@@ -334,7 +347,7 @@ run "the_key_policy_names_the_role_that_deploys_it" {
   }
 
   assert {
-    condition     = length([for statement in jsondecode(aws_kms_key.us_east_1.policy).Statement : statement if statement.Sid == "DeployRoleAdministersTheKey"]) == 1
+    condition     = length([for statement in jsondecode(aws_kms_key.us_east_1["security-change-alerts"].policy).Statement : statement if statement.Sid == "DeployRoleAdministersTheKey"]) == 1
     error_message = "Exactly one statement names the deploying role."
   }
 }
@@ -353,7 +366,7 @@ run "a_role_under_a_path_is_named_with_its_path" {
 
   assert {
     condition = contains(
-      [for s in jsondecode(aws_kms_key.us_east_1.policy).Statement : s.Principal.AWS if s.Sid == "DeployRoleAdministersTheKey"],
+      [for s in jsondecode(aws_kms_key.us_east_1["security-change-alerts"].policy).Statement : s.Principal.AWS if s.Sid == "DeployRoleAdministersTheKey"],
       "arn:aws:iam::123456789012:role/automation/pipelines/example-deploy-role",
     )
     error_message = "The key policy must name the deploying role with its full path."
@@ -493,14 +506,14 @@ run "the_alert_channel_reports_on_itself" {
       # The mock hands every topic the same ARN, so identity is asserted on the real names.
       aws_sns_topic.us_east_1_health.name == "security-change-alerts-health",
       aws_sns_topic.us_east_1_health.name != aws_sns_topic.us_east_1.name,
-      aws_sns_topic.us_east_1_health.kms_master_key_id == aws_kms_key.us_east_1.key_id,
+      aws_sns_topic.us_east_1_health.kms_master_key_id == aws_kms_key.us_east_1["security-change-alerts"].key_id,
       sort(keys(aws_sns_topic_subscription.us_east_1_health)) == sort(var.alert_emails),
     ])
     error_message = "The health topic must be a second encrypted topic carrying the same recipients."
   }
 
   assert {
-    condition = contains(jsondecode(aws_kms_key.us_east_1.policy).Statement, {
+    condition = contains(jsondecode(aws_kms_key.us_east_1["security-change-alerts"].policy).Statement, {
       Sid       = "CloudWatchPublishesThroughTheKey"
       Effect    = "Allow"
       Principal = { Service = "cloudwatch.amazonaws.com" }
@@ -509,4 +522,95 @@ run "the_alert_channel_reports_on_itself" {
     })
     error_message = "The key must admit CloudWatch, or the alarms cannot publish to the encrypted health topic."
   }
+}
+
+
+# A deployment whose account creates keys outside this pipeline names one by alias. The framework
+# then owns no key: what it must still do is encrypt both topics with the key it was given.
+
+run "a_supplied_alias_encrypts_both_topics_and_creates_no_key" {
+  command = plan
+
+  variables {
+    alert_key_alias = "platform-security-alerts"
+  }
+
+  assert {
+    condition     = length(aws_kms_key.us_east_1) == 0 && length(aws_kms_alias.us_east_1) == 0
+    error_message = "A deployment that supplies a key must create neither a key nor an alias."
+  }
+
+  assert {
+    condition     = length(data.aws_iam_session_context.current) == 0
+    error_message = "Only a framework-written key policy needs the deploying role, so a supplied key must not ask IAM for it."
+  }
+
+  assert {
+    condition = alltrue([
+      aws_sns_topic.us_east_1.kms_master_key_id == "12345678-1234-1234-1234-123456789012",
+      aws_sns_topic.us_east_1_health.kms_master_key_id == "12345678-1234-1234-1234-123456789012",
+    ])
+    error_message = "Both topics must be encrypted with the supplied key's own id, not the alias that resolved it."
+  }
+
+  assert {
+    condition     = data.aws_kms_key.us_east_1_alert["platform-security-alerts"].key_id == "alias/platform-security-alerts"
+    error_message = "The lookup must ask KMS for the alias, which is what makes the id it returns the resolved key."
+  }
+}
+
+run "a_supplied_alias_is_reported_as_someone_elses_key" {
+  command = apply
+
+  variables {
+    alert_key_alias = "platform-security-alerts"
+  }
+
+  assert {
+    condition = alltrue([
+      output.alert_key.arn == "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012",
+      output.alert_key.framework_managed == false,
+    ])
+    error_message = "The output must name the supplied key and say the framework does not own it."
+  }
+}
+
+run "refuses_a_supplied_key_that_cannot_encrypt_a_topic" {
+  command = plan
+
+  variables {
+    alert_key_alias = "platform-security-alerts"
+  }
+
+  override_data {
+    target = data.aws_kms_key.us_east_1_alert["platform-security-alerts"]
+    values = {
+      id        = "12345678-1234-1234-1234-123456789012"
+      arn       = "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+      key_spec  = "RSA_4096"
+      key_state = "Enabled"
+    }
+  }
+
+  expect_failures = [data.aws_kms_key.us_east_1_alert]
+}
+
+run "refuses_a_supplied_key_that_is_not_enabled" {
+  command = plan
+
+  variables {
+    alert_key_alias = "platform-security-alerts"
+  }
+
+  override_data {
+    target = data.aws_kms_key.us_east_1_alert["platform-security-alerts"]
+    values = {
+      id        = "12345678-1234-1234-1234-123456789012"
+      arn       = "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+      key_spec  = "SYMMETRIC_DEFAULT"
+      key_state = "PendingDeletion"
+    }
+  }
+
+  expect_failures = [data.aws_kms_key.us_east_1_alert]
 }

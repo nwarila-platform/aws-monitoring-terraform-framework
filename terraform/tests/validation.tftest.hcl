@@ -10,6 +10,18 @@ mock_provider "aws" {
     }
   }
 
+  # A key someone else owns, resolved from its alias. The id is the key's own identifier, distinct
+  # from the ARN and from the alias that was looked up; the spec and state are what the lookup's
+  # postconditions read, and a mock provider invents unrelated strings for anything left out.
+  mock_data "aws_kms_key" {
+    defaults = {
+      id        = "12345678-1234-1234-1234-123456789012"
+      arn       = "arn:aws:kms:us-east-1:${join("", ["123456", "789012"])}:key/12345678-1234-1234-1234-123456789012"
+      key_spec  = "SYMMETRIC_DEFAULT"
+      key_state = "Enabled"
+    }
+  }
+
   mock_data "aws_region" {
     defaults = {
       region = "us-east-1"
@@ -40,6 +52,7 @@ variables {
   manage_trail          = false
   exempt_pipeline_roles = []
   alert_emails          = ["security@example.com"]
+  alert_key_alias       = null
 }
 
 run "rejects_an_address_without_a_domain" {
@@ -319,4 +332,52 @@ run "rejects_consecutive_wildcards" {
   }
 
   expect_failures = [var.exempt_pipeline_roles]
+}
+
+run "accepts_a_supplied_key_alias" {
+  command = plan
+
+  variables {
+    alert_key_alias = "platform-security-alerts"
+  }
+}
+
+run "rejects_a_key_alias_carrying_its_prefix" {
+  command = plan
+
+  variables {
+    alert_key_alias = "alias/platform-security-alerts"
+  }
+
+  expect_failures = [var.alert_key_alias]
+}
+
+run "rejects_an_aws_managed_key_alias" {
+  command = plan
+
+  variables {
+    alert_key_alias = "aws/sns"
+  }
+
+  expect_failures = [var.alert_key_alias]
+}
+
+run "rejects_a_key_alias_written_as_an_arn" {
+  command = plan
+
+  variables {
+    alert_key_alias = "arn:aws:kms:us-east-1:123456789012:alias/platform-security-alerts"
+  }
+
+  expect_failures = [var.alert_key_alias]
+}
+
+run "rejects_an_empty_key_alias" {
+  command = plan
+
+  variables {
+    alert_key_alias = ""
+  }
+
+  expect_failures = [var.alert_key_alias]
 }
