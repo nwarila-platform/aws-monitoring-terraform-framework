@@ -72,11 +72,11 @@ Chosen: **option 3**, with the alias resolved by `data.aws_kms_key` (rejecting o
   carries is an alarm's name and state. Two alternatives were weighed: a second key of its own,
   which is a further key, policy and grant to protect an alarm name, and leaving the topic on the
   shared key, which is the dependency above. The residual is Security Hub's SNS encryption
-  control (`sns-encrypted-kms`) flagging that one topic; see Compliance Notes. A key policy this
-  framework writes keeps admitting `cloudwatch.amazonaws.com` for one release after the change,
-  because a deployment converging from the shared-key release rewrites the topic and the key
-  policy in one apply with nothing ordering the two; the statement is removed in the release after
-  every deployment has converged, recorded in the Changelog.
+  control (`sns-encrypted-kms`) flagging that one topic; see Compliance Notes. For the one release
+  that made the change, a key policy this framework writes kept admitting
+  `cloudwatch.amazonaws.com`, because a deployment converging from the shared-key release
+  rewrote the topic and the key policy in one apply with nothing ordering the two; the statement
+  was removed once every deployment had converged, as the Changelog records.
 
 `data.aws_kms_key` rather than the reference's `data.aws_kms_alias` is a deliberate deviation. The
 alias data source calls `ListAliases`, an account-wide read, and exposes nothing about the key
@@ -200,3 +200,4 @@ None.
 | ---------- | ------------------------------------------- | --------------------------------------------------------- | --------------------------------- | ---------- |
 | 2026-09-23 | Accepted. | An account that creates keys outside CI could not deploy the alerts. | Portfolio maintainer | Yes |
 | 2026-09-24 | The health topic is no longer encrypted; prior text kept under Previous decisions. Follow-up: remove the key policy's `CloudWatchPublishesThroughTheKey` statement in the release after every deployment has converged. | A report of a broken key must not depend on that key. | Portfolio maintainer | Yes |
+| 2026-09-24 | Removed the key policy's `CloudWatchPublishesThroughTheKey` statement, the previous row's follow-up; the Decision Outcome now records it in the past tense. | Every deployment had converged on the unencrypted health topic. | Portfolio maintainer | Yes |

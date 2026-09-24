@@ -613,18 +613,13 @@ run "the_alert_channel_reports_on_itself" {
     error_message = "The health topic policy must admit CloudWatch publishing as one of this deployment's five alarms, and nothing else."
   }
 
-  # The health topic no longer uses the key, but a deployment converging from a release where it
-  # did rewrites the topic and this policy in one apply with nothing ordering the two. The
-  # statement stays for one release; the release that removes it asserts its absence instead.
+  # The key admits its administrators and EventBridge and nothing else: the health topic carries
+  # no key, so CloudWatch has no reason to use it.
   assert {
-    condition = contains(jsondecode(aws_kms_key.us_east_1["security-change-alerts"].policy).Statement, {
-      Sid       = "CloudWatchPublishesThroughTheKey"
-      Effect    = "Allow"
-      Principal = { Service = "cloudwatch.amazonaws.com" }
-      Action    = ["kms:GenerateDataKey*", "kms:Decrypt"]
-      Resource  = "*"
-    })
-    error_message = "The key must keep admitting CloudWatch until every deployment has converged off the encrypted health topic."
+    condition = [
+      for statement in jsondecode(aws_kms_key.us_east_1["security-change-alerts"].policy).Statement : statement.Sid
+    ] == ["AccountAdministersTheKey", "DeployRoleAdministersTheKey", "EventBridgePublishesThroughTheKey"]
+    error_message = "The key policy must carry exactly the account root, the deploying role and EventBridge; CloudWatch has no reason to use the key."
   }
 }
 
