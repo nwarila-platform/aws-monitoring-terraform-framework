@@ -7,8 +7,8 @@
 | Status           | Accepted                                                                    |
 | Decision-subject | Which KMS key encrypts the alert channel, and who owns it.                  |
 | Date accepted    | 2026-09-23                                                                  |
-| Date             | 2026-09-23                                                                  |
-| Last reviewed    | 2026-09-23                                                                  |
+| Date             | 2026-09-24                                                                  |
+| Last reviewed    | 2026-09-24                                                                  |
 | Authors          | Nick Warila (@NWarila)                                                      |
 | Decision-makers  | Nick Warila (sole portfolio maintainer)                                     |
 | Consulted        | Independent gate reviews.                                                   |
@@ -18,10 +18,10 @@
 
 ## TL;DR
 
-A deployment may name an existing key by its alias. The framework then encrypts both topics with
-that key and creates no key, no alias and no key policy, and its deploy role needs only
+A deployment may name an existing key by its alias. The framework then encrypts the alert topic
+with that key and creates no key, no alias and no key policy, and its deploy role needs only
 `kms:DescribeKey`. Naming nothing keeps the original behaviour: the framework creates and owns a
-key for the channel.
+key for the channel. The health topic, which reports on that channel, is encrypted with nothing.
 
 ## Context and Problem Statement
 
@@ -58,18 +58,38 @@ Chosen: **option 3**, with the alias resolved by `data.aws_kms_key` (rejecting o
 - `alert_key_alias` takes an alias name without the `alias/` prefix. Null, the default, creates
   and owns a key exactly as before.
 - When a name is given, `data.aws_kms_key` resolves `alias/<name>` with a single `DescribeKey`
-  call. Both topics are encrypted with the key's own identifier, never with the alias, so
-  retargeting that alias later cannot silently move where the topics' encryption points.
+  call. The alert topic is encrypted with the key's own identifier, never with the alias, so
+  retargeting that alias later moves the topic's encryption at the next plan, visibly, rather
+  than silently between plans.
 - Postconditions on the lookup refuse a key that is not `SYMMETRIC_DEFAULT`, which SNS cannot use,
   and one that is not `Enabled`. Validation refuses an `aws/` alias, because an AWS-managed key's
   policy cannot be edited to admit EventBridge.
 - In that mode the framework writes no key policy, so it does not ask IAM for the deploying role's
   ARN, and the deploy role needs neither `iam:GetRole` nor any KMS management call.
+- **The health topic is not encrypted** (2026-09-24). It exists to report that the alert channel
+  is broken, and a broken key policy is one of the ways the channel breaks; a report that travels
+  through the key it reports on is silenced by the failure it exists to raise. What the topic
+  carries is an alarm's name and state. Two alternatives were weighed: a second key of its own,
+  which is a further key, policy and grant to protect an alarm name, and leaving the topic on the
+  shared key, which is the dependency above. The residual is Security Hub's SNS encryption
+  control (`sns-encrypted-kms`) flagging that one topic; see Compliance Notes. A key policy this
+  framework writes keeps admitting `cloudwatch.amazonaws.com` for one release after the change,
+  because a deployment converging from the shared-key release rewrites the topic and the key
+  policy in one apply with nothing ordering the two; the statement is removed in the release after
+  every deployment has converged, recorded in the Changelog.
 
 `data.aws_kms_key` rather than the reference's `data.aws_kms_alias` is a deliberate deviation. The
 alias data source calls `ListAliases`, an account-wide read, and exposes nothing about the key
 itself; this one calls `DescribeKey` alone and exposes the properties the postconditions need.
 The consumer's input is the same friendly alias either way.
+
+### Previous decisions
+
+Until 2026-09-24 the key encrypted both topics: the second bullet read "Both topics are encrypted
+with the key's own identifier, never with the alias, so retargeting that alias later cannot
+silently move where the topics' encryption points", the Assumptions held that a supplied key's
+owner keeps its policy admitting `cloudwatch.amazonaws.com`, and the deployment guide required a
+supplied key to admit CloudWatch.
 
 ## Pros and Cons of the Options
 
@@ -108,9 +128,9 @@ The consumer's input is the same friendly alias either way.
 ## Confirmation
 
 1. `terraform/tests/alerts.tftest.hcl` asserts that a supplied alias creates no key, no alias and
-   no session-context lookup, that both topics carry the resolved key's id, and that the lookup is
-   made by alias. Two runs drive the postconditions with an asymmetric key and a key pending
-   deletion.
+   no session-context lookup, that the alert topic carries the resolved key's id and the health
+   topic no key in either mode, and that the lookup is made by alias. Two runs drive the
+   postconditions with an asymmetric key and a key pending deletion.
 2. `terraform/tests/validation.tftest.hcl` accepts a bare alias name and rejects an empty one,
    one carrying the `alias/` prefix, an `aws/` name, and an ARN.
 3. `terraform/tests/portability.tftest.hcl` renders the supplied-key mode in GovCloud.
@@ -140,8 +160,8 @@ The consumer's input is the same friendly alias either way.
 
 ## Assumptions
 
-- A supplied key's owner keeps its policy admitting `events.amazonaws.com` and
-  `cloudwatch.amazonaws.com`, and keeps the key enabled.
+- A supplied key's owner keeps its policy admitting `events.amazonaws.com` and the deploy
+  role's `kms:DescribeKey`, and keeps the key enabled.
 - An alias resolves within the deploying account and region, which KMS guarantees.
 
 ## Supersedes
@@ -167,8 +187,10 @@ None.
 
 ## Compliance Notes
 
-- CIS AWS Foundations 3.7 (encryption with customer managed keys) is met in both modes; in
-  supplied-key mode the evidence is the key's own configuration rather than this module's.
+- AWS Security Hub SNS.1 (`sns-encrypted-kms`, SNS topics encrypted at rest with a KMS key) is
+  met by the alert topic in both modes; in supplied-key mode the evidence is the key's own
+  configuration rather than this module's. The health topic does not meet it, deliberately, for
+  the reason in the Decision Outcome.
 - NIST SP 800-53 SC-12 and SC-28: key management moves to the key's owner when one is supplied,
   which is the point of the option for accounts that separate that duty.
 
@@ -177,3 +199,4 @@ None.
 | Date       | Change                                      | Reason                                                    | Author/Role                       | Body-diff? |
 | ---------- | ------------------------------------------- | --------------------------------------------------------- | --------------------------------- | ---------- |
 | 2026-09-23 | Accepted. | An account that creates keys outside CI could not deploy the alerts. | Portfolio maintainer | Yes |
+| 2026-09-24 | The health topic is no longer encrypted; prior text kept under Previous decisions. Follow-up: remove the key policy's `CloudWatchPublishesThroughTheKey` statement in the release after every deployment has converged. | A report of a broken key must not depend on that key. | Portfolio maintainer | Yes |

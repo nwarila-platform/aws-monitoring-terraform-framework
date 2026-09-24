@@ -58,17 +58,32 @@ variables {
 # EventBridge receives no CloudTrail events at all without a logging trail, so an account that
 # has none gets one here. Both breadth settings are required, not preferred: a security group is
 # recorded in the region of the call, and IAM events are global.
-run "the_trail_records_what_both_alerts_need" {
+run "the_trail_records_what_every_alert_needs" {
   command = plan
 
   assert {
     condition = alltrue([
       aws_cloudtrail.us_east_1["management-events"].is_multi_region_trail == true,
       aws_cloudtrail.us_east_1["management-events"].include_global_service_events == true,
+      aws_cloudtrail.us_east_1["management-events"].is_organization_trail == false,
       aws_cloudtrail.us_east_1["management-events"].enable_log_file_validation == true,
+      aws_cloudtrail.us_east_1["management-events"].enable_logging == true,
       aws_cloudtrail.us_east_1["management-events"].name == "management-events",
     ])
-    error_message = "The trail must cover every region, include global service events, and validate its own log files."
+    error_message = "The trail must be this account's own, cover every region, include global service events, log, and validate its own log files."
+  }
+
+  # One advanced selector for management events, read and write: the shape the provider reads
+  # back unchanged, so a converge never re-puts it.
+  assert {
+    condition = alltrue([
+      length(aws_cloudtrail.us_east_1["management-events"].advanced_event_selector) == 1,
+      aws_cloudtrail.us_east_1["management-events"].advanced_event_selector[0].name == "Management events",
+      length(aws_cloudtrail.us_east_1["management-events"].advanced_event_selector[0].field_selector) == 1,
+      tolist(aws_cloudtrail.us_east_1["management-events"].advanced_event_selector[0].field_selector)[0].field == "eventCategory",
+      tolist(aws_cloudtrail.us_east_1["management-events"].advanced_event_selector[0].field_selector)[0].equals == tolist(["Management"]),
+    ])
+    error_message = "The trail must select management events, read and write, through exactly one advanced selector on eventCategory."
   }
 }
 
@@ -109,15 +124,30 @@ run "the_bucket_policy_admits_cloudtrail_and_only_this_trail" {
         statement.Principal.Service == "cloudtrail.amazonaws.com",
         statement.Condition.StringEquals["aws:SourceArn"] == "arn:aws:cloudtrail:us-east-1:${data.aws_caller_identity.current.account_id}:trail/management-events",
       ])
+      if statement.Effect == "Allow"
     ])
-    error_message = "Every statement must admit CloudTrail and condition on this trail's ARN."
+    error_message = "Every Allow statement must admit CloudTrail and condition on this trail's ARN."
   }
 
   assert {
     condition = [
-      for statement in jsondecode(aws_s3_bucket_policy.us_east_1_trail["management-events"].policy).Statement : statement.Action
+      for statement in jsondecode(aws_s3_bucket_policy.us_east_1_trail["management-events"].policy).Statement :
+      statement.Action if statement.Effect == "Allow"
     ] == ["s3:GetBucketAcl", "s3:PutObject"]
     error_message = "The policy must grant exactly the ACL check and the object write CloudTrail needs."
+  }
+
+  # The audit record is refused to any caller not on TLS, the bucket and every object alike.
+  assert {
+    condition = contains(jsondecode(aws_s3_bucket_policy.us_east_1_trail["management-events"].policy).Statement, {
+      Sid       = "EveryCallerUsesTls"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource  = ["arn:aws:s3:::${data.aws_caller_identity.current.account_id}-cloudtrail", "arn:aws:s3:::${data.aws_caller_identity.current.account_id}-cloudtrail/*"]
+      Condition = { Bool = { "aws:SecureTransport" = "false" } }
+    })
+    error_message = "The policy must deny every S3 action on the bucket and its objects when the request is not on TLS."
   }
 }
 
@@ -141,7 +171,7 @@ run "the_trail_is_not_created_when_the_account_already_has_one" {
   }
 
   assert {
-    condition     = length(aws_cloudwatch_event_rule.us_east_1) == 2
+    condition     = length(aws_cloudwatch_event_rule.us_east_1) == 3
     error_message = "The alerts exist either way; only the trail is optional."
   }
 }

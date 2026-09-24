@@ -1,7 +1,7 @@
 # The framework writes a few ARNs itself: the key policy's account root, the deploying role, the
 # trail, and its bucket. They must come from the provider's partition and region, so that
-# providers.tf is the only file that changes between a commercial and a GovCloud account. This suite
-# renders every one of them under GovCloud and checks that nothing commercial leaks through.
+# providers.tf is the only file that changes between a commercial and a GovCloud account. This
+# suite renders every one of them under GovCloud and checks that nothing commercial leaks through.
 
 mock_provider "aws" {
   alias = "us_east_1"
@@ -72,6 +72,14 @@ mock_provider "aws" {
       arn = "arn:aws-us-gov:events:us-gov-west-1:${join("", ["123456", "789012"])}:rule/security-change-alerts"
     }
   }
+
+  # The health topic policy names every alarm; without this the partition check below would pass
+  # on the random strings a mock invents.
+  mock_resource "aws_cloudwatch_metric_alarm" {
+    defaults = {
+      arn = "arn:aws-us-gov:cloudwatch:us-gov-west-1:${join("", ["123456", "789012"])}:alarm:security-change-alerts"
+    }
+  }
 }
 
 variables {
@@ -106,6 +114,7 @@ run "every_arn_the_framework_writes_takes_the_providers_partition_and_region" {
         s.Condition.StringEquals["aws:SourceArn"] == "arn:aws-us-gov:cloudtrail:us-gov-west-1:123456789012:trail/management-events",
         startswith(s.Resource, "arn:aws-us-gov:s3:::123456789012-cloudtrail"),
       ])
+      if s.Effect == "Allow"
     ])
     error_message = "The trail bucket policy must name the trail and the bucket in the provider's partition and region."
   }

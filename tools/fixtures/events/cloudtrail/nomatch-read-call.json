@@ -1,0 +1,15 @@
+{
+  "version": "0",
+  "id": "88888888-8888-8888-8888-888888888888",
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.cloudtrail",
+  "account": "123456789012",
+  "time": "2026-09-24T12:00:00Z",
+  "region": "us-east-1",
+  "resources": [],
+  "detail": {
+    "eventSource": "cloudtrail.amazonaws.com",
+    "eventName": "DescribeTrails",
+    "userIdentity": { "type": "AssumedRole", "arn": "arn:aws:sts::123456789012:assumed-role/x/y" }
+  }
+}

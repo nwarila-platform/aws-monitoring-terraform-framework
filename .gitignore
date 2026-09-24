@@ -96,6 +96,8 @@
 !/tools/fixtures/event-selectors/
 !/tools/fixtures/event-selectors/*.json
 !/tools/fixtures/events/
+!/tools/fixtures/events/cloudtrail/
+!/tools/fixtures/events/cloudtrail/*.json
 !/tools/fixtures/events/iam/
 !/tools/fixtures/events/iam/*.json
 !/tools/fixtures/events/security-group/

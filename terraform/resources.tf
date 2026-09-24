@@ -11,12 +11,18 @@ resource "aws_kms_key" "us_east_1" {
   provider = aws.us_east_1
   for_each = local.framework_key_names
 
-  # Define the Alert Topic Key Properties
-  deletion_window_in_days = 30
-  description             = "Encrypts the ${local.alert_name} SNS topic at rest."
-  enable_key_rotation     = true
-  policy                  = local.alert_key_policy
-  tags                    = local.alert_tags
+  # Define the Alert Topic Key Properties. A symmetric encryption key is the only kind SNS can
+  # use; the lockout check stays on so a policy that would orphan the key is refused at create.
+  bypass_policy_lockout_safety_check = false
+  customer_master_key_spec           = "SYMMETRIC_DEFAULT"
+  deletion_window_in_days            = 30
+  description                        = "Encrypts the ${local.alert_name} SNS topic at rest."
+  enable_key_rotation                = true
+  is_enabled                         = true
+  key_usage                          = "ENCRYPT_DECRYPT"
+  policy                             = local.alert_key_policy
+  rotation_period_in_days            = 365
+  tags                               = local.alert_tags
 
 }
 
@@ -119,11 +125,12 @@ resource "aws_sns_topic" "us_east_1_health" {
 
   provider = aws.us_east_1
 
-  # Define the Health Topic Properties
-  display_name      = "AWS security alert channel health"
-  kms_master_key_id = local.alert_key_id
-  name              = local.health_name
-  tags              = local.health_tags
+  # Define the Health Topic Properties. Deliberately unencrypted: this topic exists to report
+  # that the alert channel is broken, and a broken key policy is one of the ways it breaks, so
+  # the report must not travel through that key. What it carries is an alarm's name and state.
+  display_name = "AWS security alert channel health"
+  name         = local.health_name
+  tags         = local.health_tags
 
 }
 
@@ -319,6 +326,7 @@ resource "aws_cloudwatch_metric_alarm" "us_east_1_failed_invocations" {
 
   # Define the Failed-Invocation Alarm Properties. EventBridge publishes FailedInvocations only
   # when it is non-zero, so missing data is the healthy state and must not read as alarm.
+  actions_enabled     = true
   alarm_actions       = [aws_sns_topic.us_east_1_health.arn]
   alarm_description   = "EventBridge could not deliver a ${each.key} alert to the topic."
   alarm_name          = local.failed_invocation_alarm_names[each.key]
@@ -347,6 +355,7 @@ resource "aws_cloudwatch_metric_alarm" "us_east_1_undelivered" {
 
   # Define the Undelivered-Alert Alarm Properties. A message in the queue is an alert that was
   # never emailed; the queue holds it for fourteen days so it can still be read.
+  actions_enabled     = true
   alarm_actions       = [aws_sns_topic.us_east_1_health.arn]
   alarm_description   = "A security change alert was never delivered and is waiting in ${local.dlq_name}."
   alarm_name          = local.undelivered_alarm_name
@@ -375,6 +384,7 @@ resource "aws_cloudwatch_metric_alarm" "us_east_1_notification_failures" {
 
   # Define the Notification-Failure Alarm Properties. EventBridge counts a publish that SNS
   # accepted as delivered, so a subscription that bounces is invisible to the alarm above.
+  actions_enabled     = true
   alarm_actions       = [aws_sns_topic.us_east_1_health.arn]
   alarm_description   = "SNS accepted a security change alert and then failed to deliver it to a recipient."
   alarm_name          = local.notification_failures_alarm_name
@@ -579,11 +589,25 @@ resource "aws_cloudtrail" "us_east_1" {
   # IAM is a global service whose events are recorded only in the partition's global-service
   # region.
   enable_log_file_validation    = true
+  enable_logging                = true
   include_global_service_events = true
   is_multi_region_trail         = true
+  is_organization_trail         = false
   name                          = each.value.name
   s3_bucket_name                = aws_s3_bucket.us_east_1_trail[each.key].id
   tags                          = each.value.tags
+
+  # Read and write management events, which is what CloudTrail records when nothing is selected.
+  # Stated as an advanced selector because the provider reads the equivalent basic selector back
+  # as nothing at all, which would plan and re-put it on every converge.
+  advanced_event_selector {
+    name = "Management events"
+
+    field_selector {
+      equals = ["Management"]
+      field  = "eventCategory"
+    }
+  }
 
   # CloudTrail refuses to create a trail it cannot write to, so the policy has to land first.
   depends_on = [aws_s3_bucket_policy.us_east_1_trail]

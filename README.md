@@ -1,16 +1,18 @@
 # aws-monitoring-terraform-framework
 
 Terraform framework for monitoring and alerting on one AWS account, in the region its
-`providers.tf` targets. It is deliberately small: today it emails a list of recipients whenever a
-security group or IAM permissions change, and it is shaped so that further alerts are added by
-naming the API calls that count, not by writing new plumbing.
+`providers.tf` targets. It is deliberately small: today it emails a list of recipients on three
+kinds of change, a security group, the IAM roles, policies and instance profiles that grant
+permissions, and the CloudTrail trail the alerts themselves read, and it is shaped so that
+further alerts are added by naming the API calls that count, not by writing new plumbing.
 
 Each alert is an EventBridge rule matching the CloudTrail record of the change, publishing to one
 KMS-encrypted SNS topic that emails every subscribed recipient. The email is a JSON message
 carrying the call, the account, the region, the time, and the whole CloudTrail record, so the
 reader knows what changed and who changed it before opening the console. Undeliverable alerts
-land in a dead-letter queue, and alarms report delivery failures to a separate health topic.
-When asked, the framework also creates the multi-region CloudTrail trail the alerts depend on.
+land in a dead-letter queue, and alarms report delivery failures to a separate, unencrypted
+health topic. When asked, the framework also creates the multi-region CloudTrail trail the
+alerts depend on.
 
 This repository is the framework, not a deployment. A deployment pins a commit of it and supplies
 one value file per environment; nothing outside `terraform/providers.tf` chooses a region or
@@ -28,8 +30,8 @@ make ci
 ```
 
 The CI path runs Terraform formatting, init, validation, tests, the offline trail-gate proof,
-TFLint, terraform-docs drift detection, documentation layout checks, and the bidirectional
-deny-all `.gitignore` allowlist guard.
+the portability check, TFLint, terraform-docs drift detection, documentation layout checks, and
+the bidirectional deny-all `.gitignore` allowlist guard.
 
 ### Plan from a workstation
 
@@ -52,11 +54,18 @@ terraform -chdir=terraform plan "${identity[@]}"
 from the example value file. They become the `Repository`, `RepositoryId`, `CommitSha`, and
 `RunId` provenance tags on every resource, so a value file must not be able to restate them.
 
+A workstation plan is for reading, never for applying. Where the framework creates the key, its
+policy names the role that is planning as the key's administrator, so a plan made as a person
+shows that administrator changing from the pipeline's role to the person's own; applying it
+would hand the key to that person.
+
 ## Documentation
 
 - [Getting started](docs/how-to/develop-this-module.md)
+- [Deploy to a new account](docs/how-to/deploy-to-a-new-account.md)
 - [Architecture](docs/explanation/architecture.md)
 - [Threat model](docs/explanation/threat-model.md)
 - [Runner protocol](docs/reference/runner-protocol.md)
+- [Invariants](docs/reference/invariants.md)
 - [Terraform reference](docs/reference/terraform.md)
 - [Release gates](docs/reference/release-gates.md)

@@ -5,10 +5,10 @@
 | ID               | ADR-0001                                                                    |
 | Scope            | Repository-specific                                                         |
 | Status           | Accepted                                                                    |
-| Decision-subject | How a security group or IAM role change becomes an email.                   |
+| Decision-subject | How a security group, IAM, or CloudTrail change becomes an email.           |
 | Date accepted    | 2026-09-15                                                                  |
-| Date             | 2026-09-22                                                                  |
-| Last reviewed    | 2026-09-22                                                                  |
+| Date             | 2026-09-24                                                                  |
+| Last reviewed    | 2026-09-24                                                                  |
 | Authors          | Nick Warila (@NWarila)                                                      |
 | Decision-makers  | Nick Warila (sole portfolio maintainer)                                     |
 | Consulted        | Independent architecture review.                                            |
@@ -39,9 +39,10 @@ or not.
 EventBridge receives every write management event from CloudTrail while a logging trail exists
 (EventBridge User Guide, "AWS service events delivered via AWS CloudTrail"). A rule matches by
 exact `eventName`, and an input transformer renders the principal, the call, the source address,
-the time, and the request parameters into the message. There is no Logs group, no filter, and
-no alarm; the resource count is a key, a topic, its policy, the subscriptions, and one rule and
-target per alert.
+the time, and the request parameters into the message. There is no Logs group and no filter;
+the resource set is a key, a topic, its policy, the subscriptions, one rule and target per
+alert, and the channel's own health: a second topic, a dead-letter queue, and the alarms that
+report to it.
 
 ## Decision Drivers
 
@@ -86,14 +87,18 @@ Until 2026-09-22 this section also read:
 - "Alert on every principal, including the fleet's own pipelines, until real volume has been
   observed. An exemption list is a later, deliberate change."
 
+Until 2026-09-24 the Decision-subject read "How a security group or IAM role change becomes an
+email", and the resource set was described as "a key, a topic, its policy, the subscriptions,
+and one rule and target per alert", before the channel reported on itself.
+
 ## Pros and Cons of the Options
 
 ### Option 1: EventBridge rules on CloudTrail events
 
 - **Good, because** the message carries the principal, the call, the source address, the time
   and the request.
-- **Good, because** the resource set is a key, a topic, its policy, the subscriptions, and one
-  rule and target per alert.
+- **Good, because** the resource set is a key, a topic, its policy, the subscriptions, one rule
+  and target per alert, and the few resources that report on the channel itself.
 - **Good, because** it adds no Logs ingestion; unalerted events cost nothing here.
 - **Bad, because** it does not produce the metric filters and alarms CIS section 4 names, so
   benchmark tooling will not recognise it.
@@ -185,3 +190,4 @@ This decision chooses an alerting mechanism; it is not a claim of compliance.
 | 2026-09-22 | Restructured to the org ADR schema; added drivers, options, confirmation, assumptions and compliance notes. | Bring the record to the required schema. | Portfolio maintainer | Yes |
 | 2026-09-22 | Recorded that ADR-0003 revised the "do not manage the trail" premise; prior text kept under Previous decisions. | The premise that every account already has a trail did not hold. | Portfolio maintainer | Yes |
 | 2026-09-22 | Recorded that ADR-0002 replaced "alert on every principal"; prior text kept under Previous decisions. | Pipelines are exempt from the security-group alert.     | Portfolio maintainer | Yes        |
+| 2026-09-24 | Decision-subject and resource set now include the CloudTrail alert, the health topic, the queue and the alarms; prior text kept under Previous decisions. | The record described fewer resources than the framework declares. | Portfolio maintainer | Yes |

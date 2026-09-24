@@ -59,7 +59,9 @@ into Terraform. What such a pipeline gives up, and what covers it:
   ```
 
 - **The post-apply read-back.** A failed create already fails `apply`, and the delivery-failure
-  alarms report a broken channel at runtime.
+  alarms report a broken channel at runtime. A subscription lost afterwards, through a
+  recipient's unsubscribe link or an SNS suspension, is caught only by a read-back that runs on
+  a schedule: schedule one, or accept that its detection is unbounded.
 
 ## Deployment Identity
 
@@ -92,8 +94,15 @@ A runner MUST, in this order:
    must prove exempt;
 6. apply the saved plan;
 7. run `tools/check_cloudtrail.sh` again, which now requires a covering trail outright; and
-8. read the rules, targets, topics, subscriptions, and alarms back from AWS and fail on any
-   mismatch.
+8. read back from AWS and fail on any mismatch: each rule, `ENABLED` on the default bus; each
+   target, the alert topic with its dead-letter queue, retry policy and input transformer; both
+   topics, the alert topic's key and policy and the health topic's absence of a key and its
+   policy; the subscriptions, compared as the configured addresses rather than as counts; and
+   each alarm's metric, dimensions, actions and enabled state.
+
+A healthy converge of an unchanged framework commit updates identity tags only, `CommitSha` and
+`RunId` on every resource, and never replaces a resource. A runner SHOULD state that expected
+recap and treat any other change as a finding.
 
 A deploy role whose deployment creates its own key needs `iam:GetRole` on its own ARN: the
 framework asks IAM for the deploying role's real ARN, path included, to name it in the key policy
@@ -118,12 +127,12 @@ resource: `security-change-alerts` and the names that begin with it, the trail
 | Service | Calls | Scope |
 | --- | --- | --- |
 | EventBridge | `PutRule`, `DeleteRule`, `DescribeRule`, `PutTargets`, `RemoveTargets`, `ListTargetsByRule`, `TagResource`, `UntagResource`, `ListTagsForResource` | rules named `security-change-alerts-*` |
-| SNS | `CreateTopic`, `DeleteTopic`, `GetTopicAttributes`, `SetTopicAttributes`, `Subscribe`, `Unsubscribe`, `GetSubscriptionAttributes`, `SetSubscriptionAttributes`, `TagResource`, `UntagResource`, `ListTagsForResource`; `ListSubscriptionsByTopic` for a read-back that lists them | the topics `security-change-alerts` and `security-change-alerts-health`; subscription calls are granted on the topic ARN |
+| SNS | `CreateTopic`, `DeleteTopic`, `GetTopicAttributes`, `SetTopicAttributes`, `Subscribe`, `Unsubscribe`, `GetSubscriptionAttributes`, `TagResource`, `UntagResource`, `ListTagsForResource`; `SetSubscriptionAttributes`, a drift repair the module never issues in normal operation; `ListSubscriptionsByTopic` for a read-back that lists them | the topics `security-change-alerts` and `security-change-alerts-health`; subscription calls are granted on the topic ARN |
 | SQS | `CreateQueue`, `DeleteQueue`, `GetQueueAttributes`, `SetQueueAttributes`, `TagQueue`, `UntagQueue`, `ListQueueTags` | the queue `security-change-alerts-dlq` |
-| KMS, only when the framework creates the key | `CreateKey`, `DescribeKey`, `GetKeyPolicy`, `PutKeyPolicy`, `GetKeyRotationStatus`, `EnableKeyRotation`, `EnableKey`, `UpdateKeyDescription`, `ListResourceTags`, `TagResource`, `UntagResource`, `ScheduleKeyDeletion` | `CreateKey` on `*` conditioned on the request tag; the rest on keys carrying the tag |
+| KMS, only when the framework creates the key | `CreateKey`, `DescribeKey`, `GetKeyPolicy`, `PutKeyPolicy`, `GetKeyRotationStatus`, `EnableKeyRotation`, `UpdateKeyDescription`, `ListResourceTags`, `TagResource`, `UntagResource`, `ScheduleKeyDeletion`; `EnableKey`, a drift repair the module never issues in normal operation | `CreateKey` on `*` conditioned on the request tag; the rest on keys carrying the tag |
 | KMS aliases, only when the framework creates the key | `CreateAlias`, `UpdateAlias`, `DeleteAlias` on the alias and the tagged key; `ListAliases` on `*` | `alias/security-change-alerts` |
-| KMS, only when a key is supplied by alias | `DescribeKey` | the supplied key. Its policy must also authorize this role for that call, or the grant is inert |
-| CloudWatch | `PutMetricAlarm`, `DeleteAlarms`, `TagResource`, `UntagResource`, `ListTagsForResource`; `DescribeAlarms` on `*` | alarms named `security-change-alerts-*` |
+| KMS, only when a key is supplied by alias | `DescribeKey` | the supplied key. Its policy must also authorize this role for that call, or the grant is inert, and must admit `events.amazonaws.com`; nothing else publishes through it |
+| CloudWatch | `PutMetricAlarm`, `DeleteAlarms`, `DescribeAlarms`, `TagResource`, `UntagResource`, `ListTagsForResource` | alarms named `security-change-alerts-*`; the provider reads an alarm by name, so `DescribeAlarms` needs no wider scope |
 | IAM, only when the framework creates the key | `GetRole` | the deploy role itself |
 | S3, state | `GetObject`, `PutObject`, `DeleteObject`; `ListBucket` | the state object and its `.tflock`; the state prefix |
 | CloudTrail, only with `manage_trail = true` | `CreateTrail`, `AddTags`, `RemoveTags`, `ListTags`, `UpdateTrail`, `DeleteTrail`, `StartLogging`, `StopLogging`, `PutEventSelectors`, `GetTrailStatus`, `GetEventSelectors` on the trail; `DescribeTrails`, which takes no resource | the trail `management-events`; `DescribeTrails` on `*` |
@@ -144,7 +153,8 @@ Four details decide whether a first apply succeeds:
   administrator of the key; that is why that role needs `iam:GetRole` on itself. A supplied key
   needs the opposite care: its policy is written by its owner, and must authorize this deploy
   role's `kms:DescribeKey`, or the IAM grant below is inert and the first plan fails at the
-  lookup.
+  lookup, and must admit `events.amazonaws.com`, or every alert deploys and never arrives. Those
+  two are all it needs: the health topic carries no key.
 - **Creating a trail reads it back.** Terraform finishes `CreateTrail` by reading the trail, which
   calls `DescribeTrails` and `GetTrailStatus` every time. A role that can create a trail but not
   read it leaves a created trail outside state and a failed apply.

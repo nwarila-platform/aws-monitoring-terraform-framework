@@ -67,13 +67,42 @@ run "every_taggable_resource_carries_identity_and_its_name" {
   command = plan
 
   assert {
+    condition = alltrue(concat(
+      [
+        aws_kms_key.us_east_1["security-change-alerts"].tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts" })),
+        aws_sns_topic.us_east_1.tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts" })),
+        aws_sns_topic.us_east_1_health.tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts-health" })),
+        aws_sqs_queue.us_east_1_dlq.tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts-dlq" })),
+        aws_cloudwatch_metric_alarm.us_east_1_undelivered.tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts-undelivered" })),
+        aws_cloudwatch_metric_alarm.us_east_1_notification_failures.tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts-notification-failures" })),
+      ],
+      [
+        for key, rule in aws_cloudwatch_event_rule.us_east_1 :
+        rule.tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts-${key}" }))
+      ],
+      [
+        for key, alarm in aws_cloudwatch_metric_alarm.us_east_1_failed_invocations :
+        alarm.tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts-${key}-failed-invocations" }))
+      ],
+    ))
+    error_message = "The key, both topics, the queue, each rule and each alarm must carry all six identity keys plus their own Name."
+  }
+}
+
+# The trail and its bucket exist only when asked for, so their tags are checked in that mode.
+run "the_trail_and_its_bucket_carry_identity_and_their_names" {
+  command = plan
+
+  variables {
+    manage_trail = true
+  }
+
+  assert {
     condition = alltrue([
-      aws_kms_key.us_east_1["security-change-alerts"].tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts" })),
-      aws_sns_topic.us_east_1.tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts" })),
-      aws_cloudwatch_event_rule.us_east_1["iam"].tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts-iam" })),
-      aws_cloudwatch_event_rule.us_east_1["security-group"].tags == tomap(merge(local.identity_tags, { Name = "security-change-alerts-security-group" })),
+      aws_cloudtrail.us_east_1["management-events"].tags == tomap(merge(local.identity_tags, { Name = "management-events" })),
+      aws_s3_bucket.us_east_1_trail["management-events"].tags == tomap(merge(local.identity_tags, { Name = "${data.aws_caller_identity.current.account_id}-cloudtrail" })),
     ])
-    error_message = "The key, the topic, and each rule must carry all six identity keys plus their own Name."
+    error_message = "The trail and its bucket must carry all six identity keys plus their own Name."
   }
 }
 

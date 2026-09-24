@@ -1,0 +1,22 @@
+{
+  "version": "0",
+  "id": "77777777-7777-7777-7777-777777777777",
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.cloudtrail",
+  "account": "123456789012",
+  "time": "2026-09-24T12:00:00Z",
+  "region": "us-east-1",
+  "resources": [],
+  "detail": {
+    "eventSource": "cloudtrail.amazonaws.com",
+    "eventName": "StopLogging",
+    "userIdentity": {
+      "type": "AssumedRole",
+      "arn": "arn:aws:sts::123456789012:assumed-role/EXEMPT_ROLE/aws-deploy-1",
+      "sessionContext": {
+        "sessionIssuer": { "type": "Role", "userName": "EXEMPT_ROLE" }
+      }
+    },
+    "requestParameters": { "name": "arn:aws:cloudtrail:us-east-1:123456789012:trail/management-events" }
+  }
+}

@@ -113,11 +113,9 @@ locals {
         Effect    = "Allow"
         Principal = { AWS = local.deploy_principal_arn }
         Action = [
-          "kms:CancelKeyDeletion",
           "kms:CreateAlias",
           "kms:DeleteAlias",
           "kms:DescribeKey",
-          "kms:DisableKeyRotation",
           "kms:EnableKeyRotation",
           "kms:GetKeyPolicy",
           "kms:GetKeyRotationStatus",
@@ -139,8 +137,10 @@ locals {
         Resource  = "*"
       },
       {
-        # The health topic carries alarm notifications and shares this key; CloudWatch is listed
-        # as an event source in the same SNS guide, with the same two actions.
+        # The health topic no longer uses this key, but a deployment converging from a release
+        # where it did rewrites the topic and this policy in one apply with nothing ordering the
+        # two, and the topic decrypts through this statement until its own update lands. Kept for
+        # one release; removed once every deployment has converged.
         Sid       = "CloudWatchPublishesThroughTheKey"
         Effect    = "Allow"
         Principal = { Service = "cloudwatch.amazonaws.com" }
@@ -167,6 +167,18 @@ locals {
     ]
   })
 
+  # Every alarm this framework owns, read from the alarm resources so the list can never lag the
+  # alarm count.
+  health_alarm_arns = concat(
+    [for alarm in aws_cloudwatch_metric_alarm.us_east_1_failed_invocations : alarm.arn],
+    [
+      aws_cloudwatch_metric_alarm.us_east_1_undelivered.arn,
+      aws_cloudwatch_metric_alarm.us_east_1_notification_failures.arn,
+    ],
+  )
+
+  # The health topic accepts publishes from this deployment's own alarms and nothing else. An
+  # alarm's ARN carries its partition, region and account, so no account condition is needed.
   health_topic_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -176,13 +188,13 @@ locals {
         Principal = { Service = "cloudwatch.amazonaws.com" }
         Action    = "sns:Publish"
         Resource  = aws_sns_topic.us_east_1_health.arn
-        Condition = { StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id } }
+        Condition = { ArnEquals = { "aws:SourceArn" = local.health_alarm_arns } }
       },
     ]
   })
 
-  # Only the two rules this framework owns may write to the queue, named individually rather
-  # than by wildcard so a third rule cannot quietly fill it.
+  # Only the three rules this framework owns may write to the queue, named individually rather
+  # than by wildcard so another rule cannot quietly fill it.
   dlq_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -223,10 +235,19 @@ locals {
   trail_bucket_arn = "arn:${data.aws_partition.current.partition}:s3:::${local.trail_bucket}"
 
   # The policy CloudTrail requires to write, with the source condition AWS documents for it. The
-  # object path is fixed by CloudTrail and includes the account id.
+  # object path is fixed by CloudTrail and includes the account id. The audit record is also
+  # refused to any caller not on TLS, CloudTrail included.
   trail_bucket_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      {
+        Sid       = "EveryCallerUsesTls"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource  = [local.trail_bucket_arn, "${local.trail_bucket_arn}/*"]
+        Condition = { Bool = { "aws:SecureTransport" = "false" } }
+      },
       {
         Sid       = "CloudTrailChecksBucketAcl"
         Effect    = "Allow"
@@ -274,8 +295,25 @@ locals {
   # Every event named here must arrive in the provider's region. Security group calls are recorded
   # where they are made, so the deployment's workloads must live in that region (see
   # docs/reference/invariants.md). IAM calls are recorded only in the partition's global-service
-  # region, so the provider must target that region too; the rules refuse any other.
+  # region, so the provider must target that region too; the rules refuse any other. CloudTrail
+  # accepts the calls that change a trail only in that trail's home region, so the trail the
+  # alerts read must be homed here as well; a trail homed elsewhere can be stopped without an
+  # email, and an organization trail's calls are recorded in the management account only.
   change_alerts = {
+    cloudtrail = {
+      description  = "A CloudTrail trail was stopped, deleted, or changed in what it records."
+      headline     = "CloudTrail changed"
+      source       = "aws.cloudtrail"
+      event_source = "cloudtrail.amazonaws.com"
+      # Never exempt: stopping the trail is how every other alert here is silenced.
+      exempt_pipelines = false
+      event_names = [
+        "DeleteTrail",
+        "PutEventSelectors",
+        "StopLogging",
+        "UpdateTrail",
+      ]
+    }
     security-group = {
       description  = "A security group, its rules, or its VPC associations were created, changed, or deleted."
       headline     = "Security group changed"
