@@ -132,7 +132,7 @@ variable "alert_key_alias" {
     error_message = "alert_key_alias must be a KMS alias name of up to 250 characters from A-Z a-z 0-9 / _ - , or null."
   }
 
-  # The prefix is added where the alias is looked up, as the reference framework adds it.
+  # The prefix is added where the alias is looked up.
   validation {
     condition     = var.alert_key_alias == null || try(!startswith(var.alert_key_alias, "alias/"), false)
     error_message = "alert_key_alias must NOT include the 'alias/' prefix (it is added automatically)."

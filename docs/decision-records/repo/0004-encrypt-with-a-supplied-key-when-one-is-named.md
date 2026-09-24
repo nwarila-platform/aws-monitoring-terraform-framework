@@ -111,8 +111,8 @@ The consumer's input is the same friendly alias either way.
    no session-context lookup, that both topics carry the resolved key's id, and that the lookup is
    made by alias. Two runs drive the postconditions with an asymmetric key and a key pending
    deletion.
-2. `terraform/tests/validation.tftest.hcl` accepts a bare alias name and rejects one carrying the
-   `alias/` prefix, an `aws/` name, and an ARN.
+2. `terraform/tests/validation.tftest.hcl` accepts a bare alias name and rejects an empty one,
+   one carrying the `alias/` prefix, an `aws/` name, and an ARN.
 3. `terraform/tests/portability.tftest.hcl` renders the supplied-key mode in GovCloud.
 4. `docs/reference/runner-protocol.md` states the permissions each mode needs, and
    `docs/how-to/deploy-to-a-new-account.md` states what a supplied key's policy must carry.

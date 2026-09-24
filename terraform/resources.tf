@@ -7,8 +7,7 @@
 
 resource "aws_kms_key" "us_east_1" {
 
-  # Iterate through the framework-owned Alert Topic Key in the provider's region. A deployment
-  # that supplies a key by alias iterates nothing here.
+  # Iterate through the framework-owned Alert Topic Key in the provider's region.
   provider = aws.us_east_1
   for_each = local.framework_key_names
 
@@ -606,17 +605,6 @@ resource "aws_cloudtrail" "us_east_1" {
 # The trail family was once addressed by count. These carry that state to the keyed addresses
 # rather than planning a replacement the trail and bucket refuse; a deployment that never had the
 # old addresses is unaffected.
-# The key and its alias were singular before a deployment could supply its own.
-moved {
-  from = aws_kms_key.us_east_1
-  to   = aws_kms_key.us_east_1["security-change-alerts"]
-}
-
-moved {
-  from = aws_kms_alias.us_east_1
-  to   = aws_kms_alias.us_east_1["security-change-alerts"]
-}
-
 moved {
   from = aws_s3_bucket.us_east_1_trail[0]
   to   = aws_s3_bucket.us_east_1_trail["management-events"]
@@ -650,6 +638,17 @@ moved {
 moved {
   from = aws_cloudtrail.us_east_1[0]
   to   = aws_cloudtrail.us_east_1["management-events"]
+}
+
+# The key and its alias were singular before a deployment could supply its own key.
+moved {
+  from = aws_kms_key.us_east_1
+  to   = aws_kms_key.us_east_1["security-change-alerts"]
+}
+
+moved {
+  from = aws_kms_alias.us_east_1
+  to   = aws_kms_alias.us_east_1["security-change-alerts"]
 }
 
 #endregion --- [ moved ] ----------------------------------------------------------------------- #
