@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/nwarila-platform/aws-monitoring-terraform-framework/compare/v0.2.0...v0.3.0) (2026-09-24)
+
+
+### Features
+
+* **alerts:** email trail changes, and close the whole-project audit ([#13](https://github.com/nwarila-platform/aws-monitoring-terraform-framework/issues/13)) ([d04dced](https://github.com/nwarila-platform/aws-monitoring-terraform-framework/commit/d04dcedf0238abb2b502743bec42893768f7f658))
+
 ## [0.2.0](https://github.com/nwarila-platform/aws-monitoring-terraform-framework/compare/v0.1.0...v0.2.0) (2026-09-24)
 
 
